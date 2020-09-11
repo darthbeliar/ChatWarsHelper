@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="TeleSharp.TL.Core" Version="1.0.0.1" />
+    <PackageReference Include="TLSharp" Version="0.1.0.555" />
+  </ItemGroup>
+
+</Project>
