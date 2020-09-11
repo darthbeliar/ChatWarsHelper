@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using TeleSharp.TL;
+using TeleSharp.TL.Messages;
 using TLSharp.Core;
 
 namespace palochki
@@ -24,6 +25,7 @@ namespace palochki
         private const string MobsTrigger = "трунь мобы";
         private const string InFight = "Ты собрался напасть на врага";
         private const string Village = "/pledge";
+        private const string HasMobs = "/fight";
 
         private static async Task Main()
         {
@@ -50,6 +52,7 @@ namespace palochki
 
                 var chatWarsBot = new DialogHandler(client, CwBotId, CwBotAHash);
                 var teaChat = new ChannelHandler(client, TeaId, TeaAHash);
+                var lastFoundFight = "";
 
                 while (true)
                 {
@@ -69,6 +72,11 @@ namespace palochki
                             await CatchCorovan(chatWarsBot, lastBotMsg);
                         if (lastBotMsg.Message.Contains(Village))
                             await MessageUtilities.SendMessage(client, chatWarsBot.Peer, Village);
+                        if (lastBotMsg.Message.Contains(HasMobs) && lastBotMsg.Message != lastFoundFight)
+                        {
+                            lastFoundFight = lastBotMsg.Message;
+                            await MessageUtilities.ForwardMessage(client, chatWarsBot.Peer, teaChat.Peer, lastBotMsg.Id);
+                        }
                     }
 
                     Thread.Sleep(1000);

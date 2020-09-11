@@ -56,5 +56,17 @@ namespace palochki
 
             await client.SendRequestAsync<TLBotCallbackAnswer>(tlRequestGetBotCallbackAnswer);
         }
+
+        public static async Task ForwardMessage(TelegramClient client, TLAbsInputPeer FromPeer, TLAbsInputPeer ToPeer, int MessageId)
+        {
+            var forwardRequest = new TLRequestForwardMessages()
+            {
+                FromPeer = FromPeer,
+                Id = new TLVector<int>{MessageId},
+                ToPeer = ToPeer
+            };
+
+            await client.SendRequestAsync<TLUpdates>(forwardRequest);
+        }
     }
 }
