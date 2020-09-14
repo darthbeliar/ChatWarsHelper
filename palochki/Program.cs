@@ -91,7 +91,11 @@ namespace palochki
 
                     if (string.Compare(msgToCheck?.Message, MobsTrigger, StringComparison.InvariantCultureIgnoreCase) ==
                         0)
-                        await HelpWithMobs(client,chatWarsBot, teaChat, msgToCheck);
+                    {
+                        var mob = await HelpWithMobs(client, chatWarsBot, teaChat, msgToCheck);
+                        if (!string.IsNullOrEmpty(mob))
+                            lastFoundFight = mob;
+                    }
 
                     Thread.Sleep(8000);
                 }
@@ -132,36 +136,34 @@ namespace palochki
             await File.AppendAllTextAsync("logCathes.txt", $"{DateTime.Now} - задержан\n");
         }
 
-        private static async Task HelpWithMobs(TelegramClient client,DialogHandler bot, ChannelHandler chat,
+        private static async Task<string> HelpWithMobs(TelegramClient client,DialogHandler bot, ChannelHandler chat,
             TLMessage msgToCheck)
         {
             if (msgToCheck.ReplyToMsgId == null)
             {
                 await chat.SendMessage("Нет реплая на моба");
+                return "";
             }
-            else
+
+            var replyMsg = await chat.GetMessageById(msgToCheck.ReplyToMsgId.Value);
+            if (!replyMsg.Message.Contains("/fight"))
             {
-                var replyMsg = await chat.GetMessageById(msgToCheck.ReplyToMsgId.Value);
-                if (!replyMsg.Message.Contains("/fight"))
-                {
-                    await chat.SendMessage("Нет мобов в реплае");
-                }
-                else
-                {
-                    var lastBotMessage = await bot.GetLastMessage();
-                    if (lastBotMessage.Message == InFight)
-                    {
-                        await chat.SendMessage("уже дерусь");
-                    }
-                    else
-                    {
-                        await bot.SendMessage(replyMsg.Message);
-                        Thread.Sleep(1000);
-                        lastBotMessage = await bot.GetLastMessage();
-                        await MessageUtilities.ForwardMessage(client, bot.Peer, chat.Peer, lastBotMessage.Id);
-                    }
-                }
+                await chat.SendMessage("Нет мобов в реплае");
+                return "";
             }
+
+            var lastBotMessage = await bot.GetLastMessage();
+            if (lastBotMessage.Message == InFight)
+            {
+                await chat.SendMessage("уже дерусь");
+                return msgToCheck.Message;
+            }
+
+            await bot.SendMessage(replyMsg.Message);
+            Thread.Sleep(1000);
+            lastBotMessage = await bot.GetLastMessage();
+            await MessageUtilities.ForwardMessage(client, bot.Peer, chat.Peer, lastBotMessage.Id);
+            return msgToCheck.Message;
         }
 
         private static async Task CheckForBattle(DialogHandler bot)
