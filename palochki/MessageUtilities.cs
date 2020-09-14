@@ -1,4 +1,6 @@
 ﻿
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using TeleSharp.TL;
 using TeleSharp.TL.Messages;
@@ -19,6 +21,21 @@ namespace palochki
             {
                 var msgHistory = await client.GetHistoryAsync(peer, limit: 1) as TLMessagesSlice;
                 return msgHistory?.Messages[0] as TLMessage;
+            }
+        }
+
+        public static async Task<List<TLMessage>> GetLastMessages(TelegramClient client, TLAbsInputPeer peer,
+            bool isChannel = false,int count = 2)
+        {
+            if (isChannel)
+            {
+                var msgHistory = await client.GetHistoryAsync(peer, limit: count) as TLChannelMessages;
+                return msgHistory?.Messages.Select(msg => msg as TLMessage).ToList();
+            }
+            else
+            {
+                var msgHistory = await client.GetHistoryAsync(peer, limit: count) as TLMessagesSlice;
+                return msgHistory?.Messages.Select(msg => msg as TLMessage).ToList();
             }
         }
 
@@ -59,11 +76,13 @@ namespace palochki
 
         public static async Task ForwardMessage(TelegramClient client, TLAbsInputPeer FromPeer, TLAbsInputPeer ToPeer, int MessageId)
         {
+            var randomIds = new TLVector<long> {TLSharp.Core.Utils.Helpers.GenerateRandomLong()};
             var forwardRequest = new TLRequestForwardMessages()
             {
                 FromPeer = FromPeer,
                 Id = new TLVector<int>{MessageId},
-                ToPeer = ToPeer
+                ToPeer = ToPeer,
+                RandomId = randomIds
             };
 
             await client.SendRequestAsync<TLUpdates>(forwardRequest);

@@ -1,10 +1,10 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Threading.Tasks;
 using TeleSharp.TL;
-using TeleSharp.TL.Messages;
 using TLSharp.Core;
 
 namespace palochki
@@ -57,6 +57,7 @@ namespace palochki
                 while (true)
                 {
                     var lastBotMsg = await chatWarsBot.GetLastMessage();
+                    var last3BotMsgs = await chatWarsBot.GetLastMessages(3);
 
                     Console.WriteLine($"\n{DateTime.Now}");
                     if (lastBotMsg != null)
@@ -72,10 +73,12 @@ namespace palochki
                             await CatchCorovan(chatWarsBot, lastBotMsg);
                         if (lastBotMsg.Message.Contains(Village))
                             await MessageUtilities.SendMessage(client, chatWarsBot.Peer, Village);
-                        if (lastBotMsg.Message.Contains(HasMobs) && lastBotMsg.Message != lastFoundFight)
+                        if (last3BotMsgs.Any(x => x.Message.Contains(HasMobs) && x.Message != lastFoundFight))
                         {
-                            lastFoundFight = lastBotMsg.Message;
-                            await MessageUtilities.ForwardMessage(client, chatWarsBot.Peer, teaChat.Peer, lastBotMsg.Id);
+                            var fightMessage = last3BotMsgs.First(x => x.Message.Contains(HasMobs));
+                            lastFoundFight = fightMessage.Message;
+                            await MessageUtilities.ForwardMessage(client, chatWarsBot.Peer, teaChat.Peer,
+                                fightMessage.Id);
                         }
                     }
 
