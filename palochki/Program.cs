@@ -61,6 +61,15 @@ namespace palochki
                 {
                     var lastBotMsg = await chatWarsBot.GetLastMessage();
                     var last3BotMsgs = await chatWarsBot.GetLastMessages(3);
+                    var msgToCheck = await teaChat.GetLastMessage();
+
+                    if (string.Compare(msgToCheck?.Message, MobsTrigger, StringComparison.InvariantCultureIgnoreCase) ==
+                        0)
+                    {
+                        var mob = await HelpWithMobs(client, chatWarsBot, teaChat, msgToCheck);
+                        if (!string.IsNullOrEmpty(mob))
+                            lastFoundFight = mob;
+                    }
 
                     Console.WriteLine($"\n{DateTime.Now}");
                     if (lastBotMsg != null)
@@ -84,19 +93,6 @@ namespace palochki
                                 fightMessage.Id);
                         }
                     }
-
-                    Thread.Sleep(1000);
-
-                    var msgToCheck = await teaChat.GetLastMessage();
-
-                    if (string.Compare(msgToCheck?.Message, MobsTrigger, StringComparison.InvariantCultureIgnoreCase) ==
-                        0)
-                    {
-                        var mob = await HelpWithMobs(client, chatWarsBot, teaChat, msgToCheck);
-                        if (!string.IsNullOrEmpty(mob))
-                            lastFoundFight = mob;
-                    }
-
                     Thread.Sleep(8000);
                 }
             }
