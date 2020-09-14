@@ -1,5 +1,4 @@
-﻿
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using TeleSharp.TL;
@@ -74,14 +73,14 @@ namespace palochki
             await client.SendRequestAsync<TLBotCallbackAnswer>(tlRequestGetBotCallbackAnswer);
         }
 
-        public static async Task ForwardMessage(TelegramClient client, TLAbsInputPeer FromPeer, TLAbsInputPeer ToPeer, int MessageId)
+        public static async Task ForwardMessage(TelegramClient client, TLAbsInputPeer fromPeer, TLAbsInputPeer toPeer, int messageId)
         {
             var randomIds = new TLVector<long> {TLSharp.Core.Utils.Helpers.GenerateRandomLong()};
-            var forwardRequest = new TLRequestForwardMessages()
+            var forwardRequest = new TLRequestForwardMessages
             {
-                FromPeer = FromPeer,
-                Id = new TLVector<int>{MessageId},
-                ToPeer = ToPeer,
+                FromPeer = fromPeer,
+                Id = new TLVector<int>{messageId},
+                ToPeer = toPeer,
                 RandomId = randomIds
             };
 

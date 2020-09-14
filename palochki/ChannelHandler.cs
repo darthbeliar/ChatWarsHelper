@@ -4,7 +4,7 @@ using TLSharp.Core;
 
 namespace palochki
 {
-    class ChannelHandler
+    internal class ChannelHandler
     {
         public TLInputPeerChannel Peer { get; }
         private readonly TelegramClient _client;
