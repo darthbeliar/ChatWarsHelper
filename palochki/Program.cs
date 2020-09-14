@@ -87,7 +87,7 @@ namespace palochki
 
                     if (string.Compare(msgToCheck?.Message, MobsTrigger, StringComparison.InvariantCultureIgnoreCase) ==
                         0)
-                        await HelpWithMobs(chatWarsBot, teaChat, msgToCheck);
+                        await HelpWithMobs(client,chatWarsBot, teaChat, msgToCheck);
 
                     Thread.Sleep(8000);
                 }
@@ -125,7 +125,7 @@ namespace palochki
             await File.AppendAllTextAsync("logCathes.txt", $"{DateTime.Now} - задержан\n");
         }
 
-        private static async Task HelpWithMobs(DialogHandler bot, ChannelHandler chat,
+        private static async Task HelpWithMobs(TelegramClient client,DialogHandler bot, ChannelHandler chat,
             TLMessage msgToCheck)
         {
             if (msgToCheck.ReplyToMsgId == null)
@@ -151,7 +151,7 @@ namespace palochki
                         await bot.SendMessage(replyMsg.Message);
                         Thread.Sleep(1000);
                         lastBotMessage = await bot.GetLastMessage();
-                        await chat.SendMessage(lastBotMessage.Message);
+                        await MessageUtilities.ForwardMessage(client, bot.Peer, chat.Peer, lastBotMessage.Id);
                     }
                 }
             }
