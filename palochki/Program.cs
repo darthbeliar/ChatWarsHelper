@@ -152,14 +152,14 @@ namespace palochki
             if (lastBotMessage.Message == InFight)
             {
                 await chat.SendMessage("уже дерусь");
-                return msgToCheck.Message;
+                return replyMsg.Message;
             }
 
             await bot.SendMessage(replyMsg.Message);
             Thread.Sleep(1000);
             lastBotMessage = await bot.GetLastMessage();
             await MessageUtilities.ForwardMessage(client, bot.Peer, chat.Peer, lastBotMessage.Id);
-            return msgToCheck.Message;
+            return replyMsg.Message;
         }
 
         private static async Task CheckForBattle(DialogHandler bot)
