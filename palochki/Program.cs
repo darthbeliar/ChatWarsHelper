@@ -17,11 +17,14 @@ namespace palochki
             ApiHash = "f8e483e0b7cd38437cf5a9064c43f2cb"; //твой hash прилы с сайта https://my.telegram.org/apps
 
         private const int CwBotId = 265204902;
-        private const int TeaId = 1367374268;
-        private const int ResultsId = 1389695282;
         private const long CwBotAHash = 5368294506206266962;
+
+        private const int TeaId = 1367374268;
         private const long TeaAHash = -2353873925669309700;
+
+        private const int ResultsId = 1389695282;
         private const long ResultsAHash = -6679838127471252035;
+
         private const string Korovan = "пытается ограбить";
         private const string Stama = "Выносливость восстановлена: ты полон сил";
         private const string MobsTrigger = "трунь мобы";
@@ -192,7 +195,7 @@ namespace palochki
         {
             var chats = await client.GetUserDialogsAsync() as TLDialogsSlice;
             if (chats?.Chats != null)
-                foreach (var tlAbsChat in chats?.Chats)
+                foreach (var tlAbsChat in chats.Chats)
                 {
                     var channel = tlAbsChat as TLChannel;
                     if (channel == null || channel.Title != name) continue;
