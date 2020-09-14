@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using TeleSharp.TL;
+using TeleSharp.TL.Messages;
 using TLSharp.Core;
 
 namespace palochki
@@ -17,8 +18,10 @@ namespace palochki
 
         private const int CwBotId = 265204902;
         private const int TeaId = 1367374268;
+        private const int ResultsId = 1389695282;
         private const long CwBotAHash = 5368294506206266962;
         private const long TeaAHash = -2353873925669309700;
+        private const long ResultsAHash = -6679838127471252035;
         private const string Korovan = "пытается ограбить";
         private const string Stama = "Выносливость восстановлена: ты полон сил";
         private const string MobsTrigger = "трунь мобы";
@@ -51,6 +54,7 @@ namespace palochki
 
                 var chatWarsBot = new DialogHandler(client, CwBotId, CwBotAHash);
                 var teaChat = new ChannelHandler(client, TeaId, TeaAHash);
+                var results = new ChannelHandler(client,ResultsId,ResultsAHash);
                 var lastFoundFight = "";
 
                 while (true)
@@ -69,7 +73,7 @@ namespace palochki
                             await UseStamina(chatWarsBot);
 
                         if (lastBotMsg.Message.Contains(Korovan))
-                            await CatchCorovan(chatWarsBot, lastBotMsg);
+                            await CatchCorovan(client, chatWarsBot, lastBotMsg,results.Peer);
                         if (lastBotMsg.Message.Contains(Village))
                             await MessageUtilities.SendMessage(client, chatWarsBot.Peer, Village);
                         if (last3BotMsgs.Any(x => x.Message.Contains(HasMobs) && x.Message != lastFoundFight))
@@ -114,14 +118,17 @@ namespace palochki
             await bot.PressButton(botReply, 0, buttonNumber);
         }
 
-        private static async Task CatchCorovan(DialogHandler bot, TLMessage lastBotMsg)
+        private static async Task CatchCorovan(TelegramClient client, DialogHandler bot, TLMessage lastBotMsg, TLAbsInputPeer results)
         {
             await File.AppendAllTextAsync("logCathes.txt",
                 $"\n{DateTime.Now} - Пойман КОРОВАН \n{lastBotMsg.Message}\n");
             var rng = new Random();
             Thread.Sleep(rng.Next(1500, 5000));
             await bot.PressButton(lastBotMsg, 0, 0);
+            Thread.Sleep(2000);
+            var reply = await bot.GetLastMessage();
 
+            await MessageUtilities.ForwardMessage(client, bot.Peer, results, reply.Id);
             await File.AppendAllTextAsync("logCathes.txt", $"{DateTime.Now} - задержан\n");
         }
 
@@ -180,6 +187,21 @@ namespace palochki
             var hash = await client.SendCodeRequestAsync(mobile);
             var code = Console.ReadLine(); //вводишь код, который пришел в телегу
             await client.MakeAuthAsync(mobile, hash, code);
+        }
+
+        // ReSharper disable once UnusedMember.Local
+        private static async Task GetIdsByName(TelegramClient client, string name)
+        {
+            var chats = await client.GetUserDialogsAsync() as TLDialogsSlice;
+            if (chats?.Chats != null)
+                foreach (var tlAbsChat in chats?.Chats)
+                {
+                    var channel = tlAbsChat as TLChannel;
+                    if (channel == null || channel.Title != name) continue;
+                    var id = channel.Id;
+                    var hash = channel.AccessHash;
+                    Console.WriteLine($"ID = {id}\nAccessHash = {hash}");
+                }
         }
     }
 }
