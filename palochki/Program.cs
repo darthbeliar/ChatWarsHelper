@@ -128,7 +128,7 @@ namespace palochki
             var rng = new Random();
             Thread.Sleep(rng.Next(1500, 5000));
             await bot.PressButton(lastBotMsg, 0, 0);
-            Thread.Sleep(2000);
+            Thread.Sleep(40000);
             var reply = await bot.GetLastMessage();
 
             await MessageUtilities.ForwardMessage(client, bot.Peer, results, reply.Id);
