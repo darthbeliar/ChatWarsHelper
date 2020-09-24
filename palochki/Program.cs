@@ -12,25 +12,23 @@ namespace palochki
     internal static class Program
     {
         private const int ApiId = 438285; //твой апи прилы с сайта https://my.telegram.org/apps
-
+        private const int ApiId2 = 1846219;
         private const string
             ApiHash = "f8e483e0b7cd38437cf5a9064c43f2cb"; //твой hash прилы с сайта https://my.telegram.org/apps
+        private const string
+            ApiHash2 = "e3fd2b2f71af0a906ac608b2734fe4ab";
 
-        private const int CwBotId = 265204902;
         private const long CwBotAHash = 5368294506206266962;
+        private const long CwBotAHash2 = 2382078440132580454;
 
         private const int TeaId = 1367374268;
         private const long TeaAHash = -2353873925669309700;
 
+        private const int TNTId = 1280438334;
+        private const long TNTAHash = 8925615842454227854;
+
         private const int ResultsId = 1389695282;
         private const long ResultsAHash = -6679838127471252035;
-
-        private const string Korovan = "пытается ограбить";
-        private const string Stama = "Выносливость восстановлена: ты полон сил";
-        private const string MobsTrigger = "трунь мобы";
-        private const string InFight = "Ты собрался напасть на врага";
-        private const string Village = "/pledge";
-        private const string HasMobs = "/fight";
 
         private static async Task Main()
         {
@@ -51,51 +49,16 @@ namespace palochki
         {
             try
             {
-                var client = new TelegramClient(ApiId, ApiHash);
-                await client.ConnectAsync();
-                //await AuthClient(client);
-
-                var chatWarsBot = new DialogHandler(client, CwBotId, CwBotAHash);
-                var teaChat = new ChannelHandler(client, TeaId, TeaAHash);
-                var results = new ChannelHandler(client,ResultsId,ResultsAHash);
-                var lastFoundFight = "";
+                var trun = new CWHelper("трунь",ApiId,ApiHash,CwBotAHash,TeaId,TeaAHash,"трунь мобы",ResultsId,ResultsAHash);
+                await trun.Client.ConnectAsync();
+                var beliar = new CWHelper("белиар",ApiId2,ApiHash2,CwBotAHash2,TNTId,TNTAHash,"белиар мобы");
+                await trun.Client.ConnectAsync();
+                await beliar.Client.ConnectAsync();
 
                 while (true)
                 {
-                    var lastBotMsg = await chatWarsBot.GetLastMessage();
-                    var last3BotMsgs = await chatWarsBot.GetLastMessages(3);
-                    var msgToCheck = await teaChat.GetLastMessage();
-
-                    if (string.Compare(msgToCheck?.Message, MobsTrigger, StringComparison.InvariantCultureIgnoreCase) ==
-                        0)
-                    {
-                        var mob = await HelpWithMobs(client, chatWarsBot, teaChat, msgToCheck);
-                        if (!string.IsNullOrEmpty(mob))
-                            lastFoundFight = mob;
-                    }
-
-                    Console.WriteLine($"\n{DateTime.Now}");
-                    if (lastBotMsg != null)
-                    {
-                        Console.WriteLine(lastBotMsg.Message.Substring(0, Math.Min(lastBotMsg.Message.Length, 100)));
-
-                        await CheckForBattle(chatWarsBot);
-
-                        if (lastBotMsg.Message.Contains(Stama))
-                            await UseStamina(chatWarsBot);
-
-                        if (lastBotMsg.Message.Contains(Korovan))
-                            await CatchCorovan(client, chatWarsBot, lastBotMsg,results.Peer);
-                        if (lastBotMsg.Message.Contains(Village))
-                            await MessageUtilities.SendMessage(client, chatWarsBot.Peer, Village);
-                        if (last3BotMsgs.Any(x => x.Message.Contains(HasMobs) && x.Message != lastFoundFight))
-                        {
-                            var fightMessage = last3BotMsgs.First(x => x.Message.Contains(HasMobs));
-                            lastFoundFight = fightMessage.Message;
-                            await MessageUtilities.ForwardMessage(client, chatWarsBot.Peer, teaChat.Peer,
-                                fightMessage.Id);
-                        }
-                    }
+                    await trun.PerformStandardRoutine();
+                    await beliar.PerformStandardRoutine();
                     Thread.Sleep(8000);
                 }
             }
@@ -105,79 +68,6 @@ namespace palochki
                 await File.AppendAllTextAsync("ErrorsLog.txt", $"{DateTime.Now}\n{e.Message}\n");
                 await CatchCorovans();
                 throw;
-            }
-        }
-
-        private static async Task UseStamina(DialogHandler bot)
-        {
-            await bot.SendMessage(@"🗺Квесты");
-            Thread.Sleep(1000);
-            var botReply = await bot.GetLastMessage();
-            var buttonNumber = 2;
-            if (botReply.Message.Contains("🌲Лес 3мин. 🔥"))
-                buttonNumber = 0;
-            if (botReply.Message.Contains("🍄Болото 4мин. 🔥"))
-                buttonNumber = 1;
-            await bot.PressButton(botReply, 0, buttonNumber);
-        }
-
-        private static async Task CatchCorovan(TelegramClient client, DialogHandler bot, TLMessage lastBotMsg, TLAbsInputPeer results)
-        {
-            await File.AppendAllTextAsync("logCathes.txt",
-                $"\n{DateTime.Now} - Пойман КОРОВАН \n{lastBotMsg.Message}\n");
-            var rng = new Random();
-            Thread.Sleep(rng.Next(1500, 5000));
-            await bot.PressButton(lastBotMsg, 0, 0);
-            Thread.Sleep(40000);
-            var reply = await bot.GetLastMessage();
-
-            await MessageUtilities.ForwardMessage(client, bot.Peer, results, reply.Id);
-            await File.AppendAllTextAsync("logCathes.txt", $"{DateTime.Now} - задержан\n");
-        }
-
-        private static async Task<string> HelpWithMobs(TelegramClient client,DialogHandler bot, ChannelHandler chat,
-            TLMessage msgToCheck)
-        {
-            if (msgToCheck.ReplyToMsgId == null)
-            {
-                await chat.SendMessage("Нет реплая на моба");
-                return "";
-            }
-
-            var replyMsg = await chat.GetMessageById(msgToCheck.ReplyToMsgId.Value);
-            if (!replyMsg.Message.Contains("/fight"))
-            {
-                await chat.SendMessage("Нет мобов в реплае");
-                return "";
-            }
-
-            var lastBotMessage = await bot.GetLastMessage();
-            if (lastBotMessage.Message == InFight)
-            {
-                await chat.SendMessage("уже дерусь");
-                return replyMsg.Message;
-            }
-
-            await bot.SendMessage(replyMsg.Message);
-            Thread.Sleep(1000);
-            lastBotMessage = await bot.GetLastMessage();
-            await MessageUtilities.ForwardMessage(client, bot.Peer, chat.Peer, lastBotMessage.Id);
-            return replyMsg.Message;
-        }
-
-        private static async Task CheckForBattle(DialogHandler bot)
-        {
-            var battleHours = new[] {0, 8, 16};
-            const int battleMinute = 59;
-            var time = DateTime.Now;
-            if (battleHours.Contains(time.Hour) && time.Minute == battleMinute)
-            {
-                await bot.SendMessage("🏅Герой");
-                Thread.Sleep(2000);
-                var botReply = await bot.GetLastMessage();
-                if (botReply.Message.Contains("🛌Отдых"))
-                    await bot.SendMessage("/g_def");
-                Thread.Sleep(60000);
             }
         }
 
