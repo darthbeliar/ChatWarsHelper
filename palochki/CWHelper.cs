@@ -17,6 +17,7 @@ namespace palochki
         private const string Village = "/pledge";
         private const string HasMobs = "/fight";
         private const int CwBotId = 265204902;
+        private bool _battleLock;
 
         public string UserName { get; }
         public TelegramClient Client { get; }
@@ -36,6 +37,7 @@ namespace palochki
             if (reschatId != 0 && reschathash != 0)
                 CorovansLogChat = new ChannelHandler(Client, reschatId, reschathash);
             _lastFoundFight = "";
+            _battleLock = false;
         }
 
         public async Task PerformStandardRoutine()
@@ -78,7 +80,7 @@ namespace palochki
             }
         }
 
-        private static async Task UseStamina(DialogHandler bot)
+        private async Task UseStamina(DialogHandler bot)
         {
             await bot.SendMessage(@"🗺Квесты");
             Thread.Sleep(1000);
@@ -91,7 +93,7 @@ namespace palochki
             await bot.PressButton(botReply, 0, buttonNumber);
         }
 
-        private static async Task CatchCorovan(TelegramClient client, DialogHandler bot, TLMessage lastBotMsg,
+        private async Task CatchCorovan(TelegramClient client, DialogHandler bot, TLMessage lastBotMsg,
             ChannelHandler results)
         {
             await File.AppendAllTextAsync("logCathes.txt",
@@ -110,7 +112,7 @@ namespace palochki
             await File.AppendAllTextAsync("logCathes.txt", $"{DateTime.Now} - задержан\n");
         }
 
-        private static async Task<string> HelpWithMobs(TelegramClient client, DialogHandler bot, ChannelHandler chat,
+        private async Task<string> HelpWithMobs(TelegramClient client, DialogHandler bot, ChannelHandler chat,
             TLMessage msgToCheck)
         {
             if (msgToCheck.ReplyToMsgId == null)
@@ -140,19 +142,26 @@ namespace palochki
             return replyMsg.Message;
         }
 
-        private static async Task CheckForBattle(DialogHandler bot)
+        private async Task CheckForBattle(DialogHandler bot)
         {
             var battleHours = new[] {0, 8, 16};
             const int battleMinute = 59;
             var time = DateTime.Now;
             if (battleHours.Contains(time.Hour) && time.Minute == battleMinute)
             {
-                await bot.SendMessage("🏅Герой");
-                Thread.Sleep(2000);
-                var botReply = await bot.GetLastMessage();
-                if (botReply.Message.Contains("🛌Отдых"))
-                    await bot.SendMessage("/g_def");
-                Thread.Sleep(60000);
+                if (!_battleLock)
+                {
+                    await bot.SendMessage("🏅Герой");
+                    Thread.Sleep(2000);
+                    var botReply = await bot.GetLastMessage();
+                    if (botReply.Message.Contains("🛌Отдых"))
+                        await bot.SendMessage("/g_def");
+                    _battleLock = true;
+                }
+            }
+            else
+            {
+                _battleLock = false;
             }
         }
     }
