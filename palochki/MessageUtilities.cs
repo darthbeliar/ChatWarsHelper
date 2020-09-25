@@ -7,7 +7,7 @@ using TLSharp.Core;
 
 namespace palochki
 {
-    static class MessageUtilities
+    internal static class MessageUtilities
     {
         public static async Task<TLMessage> GetLastMessage(TelegramClient client,TLAbsInputPeer peer, bool isChannel = false)
         {

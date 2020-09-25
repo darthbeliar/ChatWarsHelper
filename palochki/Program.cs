@@ -1,11 +1,7 @@
 ﻿using System;
 using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using TeleSharp.TL;
-using TeleSharp.TL.Messages;
-using TLSharp.Core;
 
 namespace palochki
 {
@@ -24,8 +20,8 @@ namespace palochki
         private const int TeaId = 1367374268;
         private const long TeaAHash = -2353873925669309700;
 
-        private const int TNTId = 1280438334;
-        private const long TNTAHash = 8925615842454227854;
+        private const int TntId = 1280438334;
+        private const long TntaHash = 8925615842454227854;
 
         private const int ResultsId = 1389695282;
         private const long ResultsAHash = -6679838127471252035;
@@ -34,25 +30,24 @@ namespace palochki
         {
             try
             {
-                await CatchCorovans();
+                await MainLoop();
             }
             catch (Exception e)
             {
                 Console.WriteLine(e);
-                await CatchCorovans();
+                await MainLoop();
                 throw;
             }
         }
 
         // ReSharper disable once FunctionRecursiveOnAllPaths
-        private static async Task CatchCorovans()
+        private static async Task MainLoop()
         {
             try
             {
-                var trun = new CWHelper("трунь",ApiId,ApiHash,CwBotAHash,TeaId,TeaAHash,"трунь мобы",ResultsId,ResultsAHash);
+                var trun = new CwHelper("трунь",ApiId,ApiHash,CwBotAHash,TeaId,TeaAHash,"трунь мобы",ResultsId,ResultsAHash);
                 await trun.Client.ConnectAsync();
-                var beliar = new CWHelper("белиар",ApiId2,ApiHash2,CwBotAHash2,TNTId,TNTAHash,"белиар мобы");
-                await trun.Client.ConnectAsync();
+                var beliar = new CwHelper("белиар",ApiId2,ApiHash2,CwBotAHash2,TntId,TntaHash,"белиар мобы");
                 await beliar.Client.ConnectAsync();
 
                 while (true)
@@ -66,33 +61,9 @@ namespace palochki
             {
                 Console.WriteLine(e);
                 await File.AppendAllTextAsync("ErrorsLog.txt", $"{DateTime.Now}\n{e.Message}\n");
-                await CatchCorovans();
+                await MainLoop();
                 throw;
             }
-        }
-
-        // ReSharper disable once UnusedMember.Local
-        private static async Task AuthClient(TelegramClient client)
-        {
-            var mobile = new string("79807123831"); //твой номер, на котором акк телеги
-            var hash = await client.SendCodeRequestAsync(mobile);
-            var code = Console.ReadLine(); //вводишь код, который пришел в телегу
-            await client.MakeAuthAsync(mobile, hash, code);
-        }
-
-        // ReSharper disable once UnusedMember.Local
-        private static async Task GetIdsByName(TelegramClient client, string name)
-        {
-            var chats = await client.GetUserDialogsAsync() as TLDialogsSlice;
-            if (chats?.Chats != null)
-                foreach (var tlAbsChat in chats.Chats)
-                {
-                    var channel = tlAbsChat as TLChannel;
-                    if (channel == null || channel.Title != name) continue;
-                    var id = channel.Id;
-                    var hash = channel.AccessHash;
-                    Console.WriteLine($"ID = {id}\nAccessHash = {hash}");
-                }
         }
     }
 }

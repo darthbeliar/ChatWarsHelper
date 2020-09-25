@@ -1,9 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography.X509Certificates;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using TeleSharp.TL;
@@ -11,7 +8,7 @@ using TLSharp.Core;
 
 namespace palochki
 {
-    class CWHelper
+    internal class CwHelper
     {
         private const string Korovan = "пытается ограбить";
         private const string Stama = "Выносливость восстановлена: ты полон сил";
@@ -28,7 +25,7 @@ namespace palochki
         public ChannelHandler CorovansLogChat { get; }
         private string _lastFoundFight;
 
-        public CWHelper(string username, int apiId, string apiHash,long botAHash, int chatId, long chathash, string mobsTrigger,
+        public CwHelper(string username, int apiId, string apiHash,long botAHash, int chatId, long chathash, string mobsTrigger,
             int reschatId = 0, long reschathash = 0)
         {
             UserName = username;
