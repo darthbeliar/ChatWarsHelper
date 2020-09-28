@@ -40,12 +40,11 @@ namespace palochki
         {
             try
             {
-                var settingsFile = await File.ReadAllLinesAsync("input");
+                //var settingsFile = await File.ReadAllLinesAsync("input");
                 var trun = new CwHelper("трунь",ApiId1,ApiHash1,CwBotAHash1,TeaId,TeaAHash,"трунь мобы",ResultsId,ResultsAHash);
                 await trun.Client.ConnectAsync();
                 var beliar = new CwHelper("белиар",ApiId2,ApiHash2,CwBotAHash2,TntId,TntaHash,"белиар мобы");
                 await beliar.Client.ConnectAsync();
-                await ExtraUtilities.AuthClient(beliar.Client, "79805146280");
 
                 while (true)
                 {

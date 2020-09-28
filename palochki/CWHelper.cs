@@ -25,6 +25,7 @@ namespace palochki
         public ChannelHandler GuildChat { get; }
         public ChannelHandler CorovansLogChat { get; }
         private string _lastFoundFight;
+        private bool _afterBattleLock;
 
         public CwHelper(string username, int apiId, string apiHash,long botAHash, int chatId, long chathash, string mobsTrigger,
             int reschatId = 0, long reschathash = 0)
@@ -38,6 +39,7 @@ namespace palochki
                 CorovansLogChat = new ChannelHandler(Client, reschatId, reschathash);
             _lastFoundFight = "";
             _battleLock = false;
+            _afterBattleLock = false;
         }
 
         public async Task PerformStandardRoutine()
@@ -53,6 +55,8 @@ namespace palochki
                 if (!string.IsNullOrEmpty(mob))
                     _lastFoundFight = mob;
             }
+
+            await CheckForStaminaAfterBattle();
 
             Console.WriteLine($"\n{DateTime.Now}");
             if (lastBotMsg != null)
@@ -80,7 +84,30 @@ namespace palochki
             }
         }
 
-        private async Task UseStamina(DialogHandler bot)
+        private async Task CheckForStaminaAfterBattle()
+        {
+            var afterBattleHours = new[] {1, 8, 17};
+            const int afterBattleMinute = 8;
+            var time = DateTime.Now;
+            if (afterBattleHours.Contains(time.Hour) && time.Minute == afterBattleMinute)
+            {
+                if (!_afterBattleLock)
+                {
+                    await CwBot.SendMessage("🏅Герой");
+                    Thread.Sleep(2000);
+                    var botReply = await CwBot.GetLastMessage();
+                    if (!botReply.Message.Contains("⏰"))
+                        await UseStamina(CwBot);
+                    _afterBattleLock = true;
+                }
+            }
+            else
+            {
+                _afterBattleLock = false;
+            }
+        }
+
+        private static async Task UseStamina(DialogHandler bot)
         {
             await bot.SendMessage(@"🗺Квесты");
             Thread.Sleep(1000);
@@ -93,7 +120,7 @@ namespace palochki
             await bot.PressButton(botReply, 0, buttonNumber);
         }
 
-        private async Task CatchCorovan(TelegramClient client, DialogHandler bot, TLMessage lastBotMsg,
+        private static async Task CatchCorovan(TelegramClient client, DialogHandler bot, TLMessage lastBotMsg,
             ChannelHandler results)
         {
             await File.AppendAllTextAsync("logCathes.txt",
@@ -112,7 +139,7 @@ namespace palochki
             await File.AppendAllTextAsync("logCathes.txt", $"{DateTime.Now} - задержан\n");
         }
 
-        private async Task<string> HelpWithMobs(TelegramClient client, DialogHandler bot, ChannelHandler chat,
+        private static async Task<string> HelpWithMobs(TelegramClient client, DialogHandler bot, ChannelHandler chat,
             TLMessage msgToCheck)
         {
             if (msgToCheck.ReplyToMsgId == null)
