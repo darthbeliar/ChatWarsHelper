@@ -19,29 +19,40 @@ namespace palochki
         private const int CwBotId = 265204902;
         private bool _battleLock;
 
-        public string UserName { get; }
+        public User User { get; }
         public TelegramClient Client { get; }
-        public DialogHandler CwBot { get; }
-        public ChannelHandler GuildChat { get; }
-        public ChannelHandler CorovansLogChat { get; }
+        public DialogHandler CwBot { get; set; }
+        public ChannelHandler GuildChat { get; set; }
+        public ChannelHandler CorovansLogChat { get; set; }
         private string _lastFoundFight;
         private bool _afterBattleLock;
 
-        public CwHelper(string username, int apiId, string apiHash,long botAHash, int chatId, long chathash, string mobsTrigger,
-            int reschatId = 0, long reschathash = 0)
+        public CwHelper(User user)
         {
-            UserName = username;
-            _mobsTrigger = mobsTrigger;
-            Client = new TelegramClient(apiId, apiHash,null,username);
-            CwBot = new DialogHandler(Client, CwBotId, botAHash);
-            GuildChat = new ChannelHandler(Client, chatId, chathash);
-            if (reschatId != 0 && reschathash != 0)
-                CorovansLogChat = new ChannelHandler(Client, reschatId, reschathash);
+            User = user;
+            _mobsTrigger = user.MobsTrigger;
+            Client = new TelegramClient(user.ApiId, user.ApiHash,null,user.Username);
             _lastFoundFight = "";
             _battleLock = false;
             _afterBattleLock = false;
         }
 
+        public async Task InitHelper()
+        {
+            await Client.ConnectAsync();
+            var botIdsQuery = await ExtraUtilities.GetBotIdsByName(Client, "Chat Wars 3");
+            var botIds = botIdsQuery.Split('\t');
+            CwBot = new DialogHandler(Client, CwBotId, Convert.ToInt64(botIds[1]));
+            var guildChatIdsQuery = await ExtraUtilities.GetChannelIdsByName(Client, User.GuildChatName);
+            var guildChatIds = guildChatIdsQuery.Split('\t');
+            GuildChat = new ChannelHandler(Client, Convert.ToInt32(guildChatIds[0]), Convert.ToInt64(guildChatIds[1]));
+            if (User.ResultsChatName != "none")
+            {
+                var resChatIdsQuery = await ExtraUtilities.GetChannelIdsByName(Client, User.GuildChatName);
+                var resChatIds = resChatIdsQuery.Split('\t');
+                CorovansLogChat = new ChannelHandler(Client, Convert.ToInt32(resChatIds[0]), Convert.ToInt64(resChatIds[1]));
+            }
+        }
         public async Task PerformStandardRoutine()
         {
             var lastBotMsg = await CwBot.GetLastMessage();

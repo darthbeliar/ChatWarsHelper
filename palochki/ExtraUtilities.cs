@@ -18,16 +18,16 @@ namespace palochki
         public static async Task<string> GetChannelIdsByName(TelegramClient client, string name)
         {
             var chats = await client.GetUserDialogsAsync() as TLDialogsSlice;
-            if (chats?.Chats != null)
-                foreach (var tlAbsChat in chats.Chats)
-                {
-                    var channel = tlAbsChat as TLChannel;
-                    if (channel == null || channel.Title != name) continue;
-                    var id = channel.Id;
-                    var hash = channel.AccessHash;
-                    Console.WriteLine($"ID = {id}\nAccessHash = {hash}");
-                    return $"{id}\t{hash}";
-                }
+            if (chats?.Chats == null) return null;
+            foreach (var tlAbsChat in chats.Chats)
+            {
+                var channel = tlAbsChat as TLChannel;
+                if (channel == null || channel.Title != name) continue;
+                var id = channel.Id;
+                var hash = channel.AccessHash;
+                Console.WriteLine($"ID = {id}\nAccessHash = {hash}");
+                return $"{id}\t{hash}";
+            }
 
             return null;
         }
