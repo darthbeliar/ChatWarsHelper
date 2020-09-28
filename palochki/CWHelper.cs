@@ -12,7 +12,6 @@ namespace palochki
     {
         private const string Korovan = "пытается ограбить";
         private const string Stama = "Выносливость восстановлена: ты полон сил";
-        private readonly string _mobsTrigger;
         private const string InFight = "Ты собрался напасть на врага";
         private const string Village = "/pledge";
         private const string HasMobs = "/fight";
@@ -30,7 +29,6 @@ namespace palochki
         public CwHelper(User user)
         {
             User = user;
-            _mobsTrigger = user.MobsTrigger;
             Client = new TelegramClient(user.ApiId, user.ApiHash,null,user.Username);
             _lastFoundFight = "";
             _battleLock = false;
@@ -42,7 +40,7 @@ namespace palochki
             await Client.ConnectAsync();
             var botIdsQuery = await ExtraUtilities.GetBotIdsByName(Client, "Chat Wars 3");
             var botIds = botIdsQuery.Split('\t');
-            CwBot = new DialogHandler(Client, CwBotId, Convert.ToInt64(botIds[1]));
+            CwBot = new DialogHandler(Client, Convert.ToInt32(botIds[0]), Convert.ToInt64(botIds[1]));
             var guildChatIdsQuery = await ExtraUtilities.GetChannelIdsByName(Client, User.GuildChatName);
             var guildChatIds = guildChatIdsQuery.Split('\t');
             GuildChat = new ChannelHandler(Client, Convert.ToInt32(guildChatIds[0]), Convert.ToInt64(guildChatIds[1]));
@@ -59,7 +57,7 @@ namespace palochki
             var last3BotMsgs = await CwBot.GetLastMessages(3);
             var msgToCheck = await GuildChat.GetLastMessage();
 
-            if (string.Compare(msgToCheck?.Message, _mobsTrigger, StringComparison.InvariantCultureIgnoreCase) ==
+            if (string.Compare(msgToCheck?.Message, User.MobsTrigger, StringComparison.InvariantCultureIgnoreCase) ==
                 0)
             {
                 var mob = await HelpWithMobs(Client, CwBot, GuildChat, msgToCheck);
