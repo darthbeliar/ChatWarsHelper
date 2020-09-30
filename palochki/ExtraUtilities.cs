@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using TeleSharp.TL;
 using TeleSharp.TL.Messages;
@@ -45,6 +46,12 @@ namespace palochki
                 return $"{id}\t{hash}";
             }
             return null;
+        }
+
+        public static byte ParseArenasPlayed(string input)
+        {
+            input = input.Split("сегодня")[1];
+            return byte.Parse(Regex.Match(input,@"\d").Value);
         }
     }
 }
