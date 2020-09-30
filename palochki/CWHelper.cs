@@ -10,14 +10,6 @@ namespace palochki
 {
     internal class CwHelper
     {
-        private const string Korovan = "пытается ограбить";
-        private const string Stama = "Выносливость восстановлена: ты полон сил";
-        private const string InFight = "Ты собрался напасть на врага";
-        private const string Village = "/pledge";
-        private const string HasMobs = "/fight";
-        private const string SuccessArenaStart = "Жажда крови одолела тебя, ты пошел на Арену.";
-        private const int CwBotId = 265204902;
-
         private bool _battleLock;
         private bool _afterBattleLock;
         private byte _arenasPlayed;
@@ -45,12 +37,15 @@ namespace palochki
         public async Task InitHelper()
         {
             await Client.ConnectAsync();
-            var botIdsQuery = await ExtraUtilities.GetBotIdsByName(Client, "Chat Wars 3");
+
+            var botIdsQuery = await ExtraUtilities.GetBotIdsByName(Client, Constants.BotName);
             var botIds = botIdsQuery.Split('\t');
             CwBot = new DialogHandler(Client, Convert.ToInt32(botIds[0]), Convert.ToInt64(botIds[1]));
+
             var guildChatIdsQuery = await ExtraUtilities.GetChannelIdsByName(Client, User.GuildChatName);
             var guildChatIds = guildChatIdsQuery.Split('\t');
             GuildChat = new ChannelHandler(Client, Convert.ToInt32(guildChatIds[0]), Convert.ToInt64(guildChatIds[1]));
+
             if (User.ResultsChatName != "none")
             {
                 var resChatIdsQuery = await ExtraUtilities.GetChannelIdsByName(Client, User.GuildChatName);
@@ -58,6 +53,7 @@ namespace palochki
                 CorovansLogChat = new ChannelHandler(Client, Convert.ToInt32(resChatIds[0]), Convert.ToInt64(resChatIds[1]));
             }
         }
+
         public async Task PerformStandardRoutine()
         {
             var lastBotMsg = await CwBot.GetLastMessage();
@@ -73,27 +69,27 @@ namespace palochki
             }
 
             await CheckForStaminaAfterBattle();
+            await CheckForBattle();
+            await ArenasCheck();
 
             Console.WriteLine($"\n{DateTime.Now}");
             if (lastBotMsg != null)
             {
                 Console.WriteLine(lastBotMsg.Message.Substring(0, Math.Min(lastBotMsg.Message.Length, 100)));
 
-                await CheckForBattle();
-                await ArenasCheck();
-
-                if (lastBotMsg.Message.Contains(Stama))
+                if (lastBotMsg.Message.Contains(Constants.Stama))
                     await UseStamina();
 
-                if (lastBotMsg.Message.Contains(Korovan))
+                if (lastBotMsg.Message.Contains(Constants.Korovan))
                     await CatchCorovan(lastBotMsg);
 
-                if (lastBotMsg.Message.Contains(Village))
-                    await MessageUtilities.SendMessage(Client,CwBot.Peer,Village);
+                if (lastBotMsg.Message.Contains(Constants.Village))
+                    await MessageUtilities.SendMessage(Client, CwBot.Peer, Constants.Village);
 
-                if (last3BotMsgs.Any(x => x.Message.Contains(HasMobs) && x.Message != _lastFoundFight && x.FromId == CwBotId))
+                if (last3BotMsgs.Any(x =>
+                    x.Message.Contains(Constants.HasMobs) && x.Message != _lastFoundFight && x.FromId == Constants.CwBotId))
                 {
-                    var fightMessage = last3BotMsgs.First(x => x.Message.Contains(HasMobs));
+                    var fightMessage = last3BotMsgs.First(x => x.Message.Contains(Constants.HasMobs) && x.FromId == Constants.CwBotId);
                     _lastFoundFight = fightMessage.Message;
                     await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer,
                         fightMessage.Id);
@@ -110,16 +106,18 @@ namespace palochki
             {
                 if (!_afterBattleLock)
                 {
-                    await CwBot.SendMessage("🏅Герой");
+                    await CwBot.SendMessage(Constants.HeroCommand);
                     Thread.Sleep(2000);
                     var botReply = await CwBot.GetLastMessage();
-                    if (!botReply.Message.Contains("⏰"))
+                    if (!botReply.Message.Contains(Constants.StaminaNotFull))
                         await UseStamina();
-                    await CwBot.SendMessage("/report");
+
+                    await CwBot.SendMessage(Constants.GetReportCommand);
                     Thread.Sleep(1000);
                     botReply = await CwBot.GetLastMessage();
                     if (!botReply.Message.Contains("Твои результаты в бою"))
                         await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, botReply.Id);
+
                     _afterBattleLock = true;
                 }
             }
@@ -176,7 +174,7 @@ namespace palochki
             }
 
             var lastBotMessage = await CwBot.GetLastMessage();
-            if (lastBotMessage.Message == InFight)
+            if (lastBotMessage.Message == Constants.InFight)
             {
                 await GuildChat.SendMessage("уже дерусь");
                 return replyMsg.Message;
@@ -220,6 +218,8 @@ namespace palochki
             var time = DateTime.Now;
             if (time.Hour == 13 && time.Minute <= 1)
                 _arenasPlayed = 0;
+            if(_arenasPlayed == 5)
+                return;
             if(nightHours.Contains(time.Hour) || time.Hour == _skipHour)
                 return;
             if(afterBattleHours.Contains(time.Hour) && time.Minute < 9)
@@ -243,7 +243,7 @@ namespace palochki
             await CwBot.SendMessage("▶️Быстрый бой");
             Thread.Sleep(1000);
             botReply = await CwBot.GetLastMessage();
-            if (botReply.Message != SuccessArenaStart)
+            if (botReply.Message !=  Constants.SuccessArenaStart)
                 _skipHour = (byte)time.Hour;
             ArenaFightStarted = time;
         }
