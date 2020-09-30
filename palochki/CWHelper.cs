@@ -17,6 +17,7 @@ namespace palochki
         private const string HasMobs = "/fight";
         private const int CwBotId = 265204902;
         private bool _battleLock;
+        private bool _afterBattleLock;
 
         public User User { get; }
         public TelegramClient Client { get; }
@@ -24,7 +25,6 @@ namespace palochki
         public ChannelHandler GuildChat { get; set; }
         public ChannelHandler CorovansLogChat { get; set; }
         private string _lastFoundFight;
-        private bool _afterBattleLock;
 
         public CwHelper(User user)
         {
@@ -107,6 +107,11 @@ namespace palochki
                     var botReply = await CwBot.GetLastMessage();
                     if (!botReply.Message.Contains("⏰"))
                         await UseStamina(CwBot);
+                    await CwBot.SendMessage("/report");
+                    Thread.Sleep(1000);
+                    botReply = await CwBot.GetLastMessage();
+                    if (!botReply.Message.Contains("Твои результаты в бою"))
+                        await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, botReply.Id);
                     _afterBattleLock = true;
                 }
             }
