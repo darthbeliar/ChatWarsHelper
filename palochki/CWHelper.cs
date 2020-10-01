@@ -46,9 +46,9 @@ namespace palochki
             var guildChatIds = guildChatIdsQuery.Split('\t');
             GuildChat = new ChannelHandler(Client, Convert.ToInt32(guildChatIds[0]), Convert.ToInt64(guildChatIds[1]));
 
-            if (User.ResultsChatName != "none")
+            if (User.ResultsChatName != Constants.AbsendResultsChat)
             {
-                var resChatIdsQuery = await ExtraUtilities.GetChannelIdsByName(Client, User.GuildChatName);
+                var resChatIdsQuery = await ExtraUtilities.GetChannelIdsByName(Client, User.ResultsChatName);
                 var resChatIds = resChatIdsQuery.Split('\t');
                 CorovansLogChat = new ChannelHandler(Client, Convert.ToInt32(resChatIds[0]), Convert.ToInt64(resChatIds[1]));
             }
@@ -115,7 +115,7 @@ namespace palochki
                     await CwBot.SendMessage(Constants.GetReportCommand);
                     Thread.Sleep(1000);
                     botReply = await CwBot.GetLastMessage();
-                    if (!botReply.Message.Contains("Твои результаты в бою"))
+                    if (botReply.Message.Contains(Constants.ReportsHeader))
                         await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, botReply.Id);
 
                     _afterBattleLock = true;
@@ -129,20 +129,20 @@ namespace palochki
 
         private async Task UseStamina()
         {
-            await CwBot.SendMessage(@"🗺Квесты");
+            await CwBot.SendMessage(Constants.QuestsCommand);
             Thread.Sleep(1000);
             var botReply = await CwBot.GetLastMessage();
             var buttonNumber = 2;
-            if (botReply.Message.Contains("🌲Лес 3мин. 🔥"))
+            if (botReply.Message.Contains(Constants.ForestQuestForRangers))
                 buttonNumber = 0;
-            if (botReply.Message.Contains("🍄Болото 4мин. 🔥"))
+            if (botReply.Message.Contains(Constants.SwampQuestForRangers))
                 buttonNumber = 1;
             await CwBot.PressButton(botReply, 0, buttonNumber);
         }
 
         private async Task CatchCorovan(TLMessage lastBotMsg)
         {
-            await File.AppendAllTextAsync("logCathes.txt",
+            await File.AppendAllTextAsync(Constants.CatchesLogFileName,
                 $"\n{DateTime.Now} - Пойман КОРОВАН \n{lastBotMsg.Message}\n");
             var rng = new Random();
             Thread.Sleep(rng.Next(1500, 5000));
@@ -155,7 +155,7 @@ namespace palochki
                 await MessageUtilities.ForwardMessage(Client, CwBot.Peer, CorovansLogChat.Peer, reply.Id);
             }
 
-            await File.AppendAllTextAsync("logCathes.txt", $"{DateTime.Now} - задержан\n");
+            await File.AppendAllTextAsync(Constants.CatchesLogFileName, $"{DateTime.Now} - задержан\n");
         }
 
         private async Task<string> HelpWithMobs(TLMessage msgToCheck)
@@ -167,7 +167,7 @@ namespace palochki
             }
 
             var replyMsg = await GuildChat.GetMessageById(msgToCheck.ReplyToMsgId.Value);
-            if (!replyMsg.Message.Contains("/fight"))
+            if (!replyMsg.Message.Contains(Constants.HasMobs))
             {
                 await GuildChat.SendMessage("Нет мобов в реплае");
                 return "";
@@ -196,10 +196,10 @@ namespace palochki
             {
                 if (!_battleLock)
                 {
-                    await CwBot.SendMessage("🏅Герой");
+                    await CwBot.SendMessage(Constants.HeroCommand);
                     Thread.Sleep(2000);
                     var botReply = await CwBot.GetLastMessage();
-                    if (botReply.Message.Contains("🛌Отдых"))
+                    if (botReply.Message.Contains(Constants.RestedState))
                         await CwBot.SendMessage("/g_def");
                     _battleLock = true;
                 }
@@ -212,26 +212,19 @@ namespace palochki
 
         private async Task ArenasCheck()
         {
-            var afterBattleHours = new[] {1, 8, 17};
-            var nightHours = new[] {7,8,15,16,23,0};
-
             var time = DateTime.Now;
-            if (time.Hour == 13 && time.Minute <= 1)
-                _arenasPlayed = 0;
-            if(_arenasPlayed == 5)
-                return;
-            if(nightHours.Contains(time.Hour) || time.Hour == _skipHour)
-                return;
-            if(afterBattleHours.Contains(time.Hour) && time.Minute < 9)
-                return;
-            if(ArenaFightStarted.AddMinutes(6) > time)
-                return;
+            if(CheckArenaBlocks(time)) return;
 
             _skipHour = 25;
 
-            await CwBot.SendMessage(@"🗺Квесты");
+            await CwBot.SendMessage(Constants.QuestsCommand);
             Thread.Sleep(1000);
             var botReply = await CwBot.GetLastMessage();
+            if (botReply.Message == Constants.BusyState)
+            {
+                _skipHour = (byte) time.Hour;
+                return;
+            }
             await CwBot.PressButton(botReply, 1, 1);
             Thread.Sleep(1000);
             botReply = await CwBot.GetLastMessage();
@@ -240,12 +233,28 @@ namespace palochki
             if(_arenasPlayed == 5)
                 return;
 
-            await CwBot.SendMessage("▶️Быстрый бой");
+            await CwBot.SendMessage(Constants.FastFightCommand);
             Thread.Sleep(1000);
             botReply = await CwBot.GetLastMessage();
             if (botReply.Message !=  Constants.SuccessArenaStart)
                 _skipHour = (byte)time.Hour;
             ArenaFightStarted = time;
+        }
+
+        private bool CheckArenaBlocks(DateTime time)
+        {
+            var afterBattleHours = new[] {1, 8, 17};
+            var nightHours = new[] {7,8,15,16,23,0};
+
+            if (time.Hour == 13 && time.Minute <= 1)
+                _arenasPlayed = 0;
+            if(_arenasPlayed == 5)
+                return true;
+            if(nightHours.Contains(time.Hour) || time.Hour == _skipHour)
+                return true;
+            if(afterBattleHours.Contains(time.Hour) && time.Minute < 9)
+                return true;
+            return ArenaFightStarted.AddMinutes(6) > time;
         }
     }
 }

@@ -27,7 +27,7 @@ namespace palochki
         {
             try
             {
-                var settingsFile = await File.ReadAllLinesAsync("input");
+                var settingsFile = await File.ReadAllLinesAsync(Constants.InputFileName);
                 var helpers = settingsFile.Select(line => new User(line)).Select(user => new CwHelper(user)).ToList();
 
                 foreach (var cwHelper in helpers)
@@ -47,7 +47,7 @@ namespace palochki
             catch (Exception e)
             {
                 Console.WriteLine(e);
-                await File.AppendAllTextAsync("ErrorsLog.txt", $"{DateTime.Now}\n{e.Message}\n");
+                await File.AppendAllTextAsync(Constants.ErrorLogFileName, $"{DateTime.Now}\n{e.Message}\n");
                 await MainLoop();
                 throw;
             }
