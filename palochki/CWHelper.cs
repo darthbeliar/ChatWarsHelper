@@ -99,7 +99,7 @@ namespace palochki
 
         private async Task CheckForStaminaAfterBattle()
         {
-            var afterBattleHours = new[] {1, 8, 17};
+            var afterBattleHours = new[] {2, 9, 17};
             const int afterBattleMinute = 8;
             var time = DateTime.Now;
             if (afterBattleHours.Contains(time.Hour) && time.Minute == afterBattleMinute)
@@ -220,15 +220,14 @@ namespace palochki
             await CwBot.SendMessage(Constants.QuestsCommand);
             Thread.Sleep(1000);
             var botReply = await CwBot.GetLastMessage();
+            await CwBot.PressButton(botReply, 1, 1);
+            Thread.Sleep(1000);
+            botReply = await CwBot.GetLastMessage();
             if (botReply.Message == Constants.BusyState)
             {
                 _skipHour = (byte) time.Hour;
                 return;
             }
-            await CwBot.PressButton(botReply, 1, 1);
-            Thread.Sleep(1000);
-            botReply = await CwBot.GetLastMessage();
-
             _arenasPlayed = ExtraUtilities.ParseArenasPlayed(botReply.Message);
             if(_arenasPlayed == 5)
                 return;
@@ -243,7 +242,7 @@ namespace palochki
 
         private bool CheckArenaBlocks(DateTime time)
         {
-            var afterBattleHours = new[] {1, 8, 17};
+            var afterBattleHours = new[] {2, 9, 17};
             var nightHours = new[] {7,8,15,16,23,0};
 
             if (time.Hour == 13 && time.Minute <= 1)
