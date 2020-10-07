@@ -100,6 +100,7 @@ namespace palochki
                         fightMessage.Id);
                 }
             }
+            Console.WriteLine($"{DateTime.Now}: {User.Username}: цикл проверок завершен");
         }
 
         private async Task CheckForStaminaAfterBattle()
