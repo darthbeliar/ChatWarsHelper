@@ -9,9 +9,12 @@ namespace palochki
 {
     internal static class ExtraUtilities
     {
-        public static async Task AuthClient(TelegramClient client,string num)
+        public static async Task AuthClient(TelegramClient client)
         {
+            Console.WriteLine("\nВведите номер\n");
+            var num = Console.ReadLine();
             var hash = await client.SendCodeRequestAsync(num);
+            Console.WriteLine("\nВведите код из телеги\n");
             var code = Console.ReadLine(); //вводишь код, который пришел в телегу
             await client.MakeAuthAsync(num, hash, code);
         }

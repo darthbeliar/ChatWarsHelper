@@ -23,6 +23,7 @@
         public const string ReportsHeader = "Твои результаты в бою";
         public const string ForestQuestForRangers = "🌲Лес 3мин. 🔥";
         public const string SwampQuestForRangers = "🍄Болото 4мин. 🔥";
+        public const string AuthError = "Authorize user first!";
         public const int CwBotId = 265204902;
     }
 }

@@ -36,7 +36,13 @@ namespace palochki
 
         public async Task InitHelper()
         {
-            await Client.ConnectAsync();
+            if(!Client.IsConnected)
+                await Client.ConnectAsync();
+            if (!Client.IsUserAuthorized())
+            {
+                Console.WriteLine($"\nПользователь {User.Username} не авторизован на этом устройстве\n");
+                await ExtraUtilities.AuthClient(Client);
+            }
 
             var botIdsQuery = await ExtraUtilities.GetBotIdsByName(Client, Constants.BotName);
             var botIds = botIdsQuery.Split('\t');
@@ -52,6 +58,9 @@ namespace palochki
                 var resChatIds = resChatIdsQuery.Split('\t');
                 CorovansLogChat = new ChannelHandler(Client, Convert.ToInt32(resChatIds[0]), Convert.ToInt64(resChatIds[1]));
             }
+
+            Console.WriteLine(
+                $"\nПользователь {User.Username} подключен\nЧат ги:{User.GuildChatName}\nТриггер на мобов:{User.MobsTrigger}\nКанал для реппортов караванов:{User.ResultsChatName}");
         }
 
         public async Task PerformStandardRoutine()
@@ -72,11 +81,8 @@ namespace palochki
             await CheckForBattle();
             await ArenasCheck();
 
-            Console.WriteLine($"\n{DateTime.Now}");
             if (lastBotMsg != null)
             {
-                Console.WriteLine(lastBotMsg.Message.Substring(0, Math.Min(lastBotMsg.Message.Length, 100)));
-
                 if (lastBotMsg.Message.Contains(Constants.Stama))
                     await UseStamina();
 
@@ -118,6 +124,8 @@ namespace palochki
                     if (botReply.Message.Contains(Constants.ReportsHeader))
                         await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, botReply.Id);
 
+                    Console.WriteLine($"{DateTime.Now}: {User.Username}: репорт отправлен");
+
                     _afterBattleLock = true;
                 }
             }
@@ -138,6 +146,7 @@ namespace palochki
             if (botReply.Message.Contains(Constants.SwampQuestForRangers))
                 buttonNumber = 1;
             await CwBot.PressButton(botReply, 0, buttonNumber);
+            Console.WriteLine($"{DateTime.Now}: {User.Username}: единица стамины использована(переполнение)");
         }
 
         private async Task CatchCorovan(TLMessage lastBotMsg)
@@ -156,6 +165,7 @@ namespace palochki
             }
 
             await File.AppendAllTextAsync(Constants.CatchesLogFileName, $"{DateTime.Now} - задержан\n");
+            Console.WriteLine($"{DateTime.Now}: {User.Username}: пойман корован");
         }
 
         private async Task<string> HelpWithMobs(TLMessage msgToCheck)
@@ -184,6 +194,7 @@ namespace palochki
             Thread.Sleep(1000);
             lastBotMessage = await CwBot.GetLastMessage();
             await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, lastBotMessage.Id);
+            Console.WriteLine($"{DateTime.Now}: {User.Username}: помог с мобами");
             return replyMsg.Message;
         }
 
@@ -200,7 +211,11 @@ namespace palochki
                     Thread.Sleep(2000);
                     var botReply = await CwBot.GetLastMessage();
                     if (botReply.Message.Contains(Constants.RestedState))
+                    {
                         await CwBot.SendMessage("/g_def");
+                        Console.WriteLine($"{DateTime.Now}: {User.Username}: ушел в гидеф");
+                    }
+
                     _battleLock = true;
                 }
             }
@@ -237,6 +252,9 @@ namespace palochki
             botReply = await CwBot.GetLastMessage();
             if (botReply.Message !=  Constants.SuccessArenaStart)
                 _skipHour = (byte)time.Hour;
+            if (_arenasPlayed == 4)
+                _arenasPlayed = 5;
+            Console.WriteLine($"{DateTime.Now}: {User.Username}: ушел на арену");
             ArenaFightStarted = time;
         }
 
