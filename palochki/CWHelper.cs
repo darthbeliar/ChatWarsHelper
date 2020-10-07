@@ -36,8 +36,7 @@ namespace palochki
 
         public async Task InitHelper()
         {
-            if(!Client.IsConnected)
-                await Client.ConnectAsync();
+            await Client.ConnectAsync();
             if (!Client.IsUserAuthorized())
             {
                 Console.WriteLine($"\nПользователь {User.Username} не авторизован на этом устройстве\n");
