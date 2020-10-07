@@ -29,7 +29,6 @@ namespace palochki
                 if (channel == null || channel.Title != name) continue;
                 var id = channel.Id;
                 var hash = channel.AccessHash;
-                Console.WriteLine($"ID = {id}\nAccessHash = {hash}");
                 return $"{id}\t{hash}";
             }
 
@@ -45,7 +44,6 @@ namespace palochki
                 if (user == null || user.FirstName != name) continue;
                 var id = user.Id;
                 var hash = user.AccessHash;
-                Console.WriteLine($"ID = {id}\nAccessHash = {hash}");
                 return $"{id}\t{hash}";
             }
             return null;
