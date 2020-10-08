@@ -113,15 +113,22 @@ namespace palochki
             Console.WriteLine($"{DateTime.Now}: {User.Username}: цикл проверок завершен");
         }
 
-        private async Task<bool>CheckForDisability()
+        private async Task<bool> CheckForDisability()
         {
-            var LastMsg = await SavesChat.GetLastMessage();
-            return LastMsg.Message switch
+            var lastMsg = await SavesChat.GetLastMessage();
+            if (lastMsg.Message == "stop bot")
             {
-                "stop bot" => true,
-                "start bot" => false,
-                _ => _disabled
-            };
+                await SavesChat.SendMessage("Бот остановлен");
+                return true;
+            }
+
+            if (lastMsg.Message == "start bot")
+            {
+                await SavesChat.SendMessage("Бот запущен");
+                return false;
+            }
+
+            return _disabled;
         }
 
         private async Task CheckForStaminaAfterBattle()
