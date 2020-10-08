@@ -14,9 +14,11 @@ namespace palochki
         private bool _afterBattleLock;
         private byte _arenasPlayed;
         private byte _skipHour;
+        private bool _disabled;
         public User User { get; }
         public TelegramClient Client { get; }
         public DialogHandler CwBot { get; set; }
+        public DialogHandler SavesChat { get; set; }
         public ChannelHandler GuildChat { get; set; }
         public ChannelHandler CorovansLogChat { get; set; }
         private string _lastFoundFight;
@@ -32,6 +34,7 @@ namespace palochki
             _arenasPlayed = 0;
             _skipHour = 25;
             ArenaFightStarted = DateTime.MinValue;
+            _disabled = false;
         }
 
         public async Task InitHelper()
@@ -51,6 +54,10 @@ namespace palochki
             var guildChatIds = guildChatIdsQuery.Split('\t');
             GuildChat = new ChannelHandler(Client, Convert.ToInt32(guildChatIds[0]), Convert.ToInt64(guildChatIds[1]));
 
+            var savesChatIdsQuery = await ExtraUtilities.GetBotIdsByName(Client, Client.Session.TLUser.FirstName);
+            var savesChatIds = savesChatIdsQuery.Split('\t');
+            SavesChat = new DialogHandler(Client, Convert.ToInt32(savesChatIds[0]), Convert.ToInt64(savesChatIds[1]));
+
             if (User.ResultsChatName != Constants.AbsendResultsChat)
             {
                 var resChatIdsQuery = await ExtraUtilities.GetChannelIdsByName(Client, User.ResultsChatName);
@@ -64,6 +71,9 @@ namespace palochki
 
         public async Task PerformStandardRoutine()
         {
+            _disabled = await CheckForDisability();
+            if(_disabled)
+                return;
             var lastBotMsg = await CwBot.GetLastMessage();
             var last3BotMsgs = await CwBot.GetLastMessages(3);
             var msgToCheck = await GuildChat.GetLastMessage();
@@ -101,6 +111,17 @@ namespace palochki
                 }
             }
             Console.WriteLine($"{DateTime.Now}: {User.Username}: цикл проверок завершен");
+        }
+
+        private async Task<bool>CheckForDisability()
+        {
+            var LastMsg = await SavesChat.GetLastMessage();
+            return LastMsg.Message switch
+            {
+                "stop bot" => true,
+                "start bot" => false,
+                _ => _disabled
+            };
         }
 
         private async Task CheckForStaminaAfterBattle()
