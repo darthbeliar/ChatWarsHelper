@@ -133,7 +133,7 @@ namespace palochki
 
         private async Task CheckForStaminaAfterBattle()
         {
-            var afterBattleHours = new[] {2, 9, 17};
+            var afterBattleHours = new[] {1, 9, 17};
             const int afterBattleMinute = 8;
             var time = DateTime.Now;
             if (afterBattleHours.Contains(time.Hour) && time.Minute == afterBattleMinute)
