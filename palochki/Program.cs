@@ -28,19 +28,33 @@ namespace palochki
             try
             {
                 var settingsFile = await File.ReadAllLinesAsync(Constants.InputFileName);
-                var helpers = settingsFile.Select(line => new User(line)).Select(user => new CwHelper(user)).ToList();
+                var helpersCw = settingsFile.Select(line => new User(line)).Select(user => new CwHelper(user)).ToList();
+                var helpersHyp = settingsFile.Select(line => new User(line)).Select(user => new HyperionHelper(user))
+                    .Where(h => h.User.HyperionUser).ToList();
 
-                foreach (var cwHelper in helpers)
+                foreach (var cwHelper in helpersCw)
                 {
                     await cwHelper.InitHelper();
                 }
 
+                foreach (var helperHyp in helpersHyp)
+                {
+                    var client = helpersCw.FirstOrDefault(h => h.User.Username == helperHyp.User.Username).Client;
+                    await helperHyp.InitHelper(client);
+                }
+
                 while (true)
                 {
-                    foreach (var cwHelper in helpers)
+                    foreach (var cwHelper in helpersCw)
                     {
                         await cwHelper.PerformStandardRoutine();
                     }
+
+                    foreach (var helperHyp in helpersHyp)
+                    {
+                        await helperHyp.DoFarm();
+                    }
+
                     Thread.Sleep(8000);
                 }
             }

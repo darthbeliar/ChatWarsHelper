@@ -8,6 +8,7 @@
         public string GuildChatName { get; }
         public string ResultsChatName { get; }
         public string MobsTrigger { get; }
+        public bool HyperionUser { get; } = false;
 
         public User(string rawInput)
         {
@@ -18,6 +19,7 @@
             GuildChatName = parsedInput[3];
             MobsTrigger = parsedInput[4];
             ResultsChatName = parsedInput[5];
+            HyperionUser = parsedInput[6] == "true";
         }
     }
 }
