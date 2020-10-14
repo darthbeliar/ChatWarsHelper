@@ -65,11 +65,12 @@ namespace palochki
                         await cwHelper.PerformStandardRoutine();
                     }
 
-                    Thread.Sleep(8000);
+                    Thread.Sleep(4000);
                     foreach (var helperHyp in helpersHyp)
                     {
                         await helperHyp.DoFarm();
                     }
+                    Thread.Sleep(4000);
                 }
             }
             catch (Exception e)

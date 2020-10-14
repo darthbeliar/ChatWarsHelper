@@ -64,14 +64,17 @@ namespace palochki
             await CheckControls();
             if (_disabled)
                 return;
+
             if (_waitForStamaRegen)
             {
                 await StaminaCheck();
                 return;
             }
+
             var time = DateTime.Now;
-            if(time < _pauseStart.AddSeconds(130) || time < _pauseFight.AddSeconds(12))
+            if(time < _pauseStart.AddSeconds(140) || time < _pauseFight.AddSeconds(12))
                 return;
+
             if (!_farmInProcess && !await CharInTown())
             {
                 _disabled = true;
@@ -88,6 +91,7 @@ namespace palochki
                     _timeToGoHome = true;
                 return;
             }
+
             if (_timeToGoHome)
             {
                 if (await CharInTown())
