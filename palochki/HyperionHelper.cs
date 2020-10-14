@@ -149,6 +149,7 @@ namespace palochki
             {
                 _waitForStamaRegen = false;
                 await HyperionBot.SendMessage("🏋️‍♂️ Профиль");
+                Thread.Sleep(1000);
             }
             if (lastMsg.Contains("Ты слишком устал, чтобы это делать."))
                 _waitForStamaRegen = true;
