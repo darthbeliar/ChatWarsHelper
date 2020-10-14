@@ -34,7 +34,7 @@ namespace palochki
             _arenasPlayed = 0;
             _skipHour = 25;
             ArenaFightStarted = DateTime.MinValue;
-            _disabled = false;
+            _disabled = User.Username == "алух";
         }
 
         public async Task InitHelper()
