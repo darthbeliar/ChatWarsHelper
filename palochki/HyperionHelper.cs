@@ -97,8 +97,10 @@ namespace palochki
                     await DoStepToTown();
                 }
             }
-
-            await DoStepToFarmSpot();
+            else
+            {
+                await DoStepToFarmSpot();
+            }
         }
 
         private async Task DoStepToFarmSpot()
@@ -110,7 +112,7 @@ namespace palochki
 
             if (x == _farmSpot)
             {
-                direction = x == y ? "➡️ Восток" : "⬅️ Запад";
+                direction = x == y ? "⬅️ Запад" : "➡️ Восток";
             }
             else
                 direction = "↗️ СВ";
@@ -120,7 +122,7 @@ namespace palochki
         private async Task DoStepToTown()
         {
             var lastMsg = (await HyperionBot.GetLastMessage()).Message;
-            var direction = "⬅️ Запад";
+            var direction = "⬇️ Юг";
             if (GetX(lastMsg) == GetY(lastMsg))
                 direction = "↙️ ЮЗ";
             await DoStep(direction,lastMsg);
@@ -168,7 +170,7 @@ namespace palochki
             var x = GetX(lastMsg);
             for (int i = x; i > 10; i--)
             {
-                currentHp -= short.Parse(_mobsDamage[i - 10].Split('-')[1]);
+                currentHp -= short.Parse(_mobsDamage[i - 11].Split('-')[1]);
             }
 
             return currentHp > 0;
