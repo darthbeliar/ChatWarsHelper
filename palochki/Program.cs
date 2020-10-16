@@ -11,7 +11,7 @@ namespace palochki
     {
         private static async Task Main()
         {
-            var helpersCw = await PrepareClientsCw();
+            var helpersCw = await PrepareHelpersCw();
             var helpersHyp = await PrepareHelpersHyp(helpersCw);
             try
             {
@@ -41,7 +41,7 @@ namespace palochki
             return helpersHyp;
         }
 
-        private static async Task<List<CwHelper>> PrepareClientsCw()
+        private static async Task<List<CwHelper>> PrepareHelpersCw()
         {
             var settingsFile = await File.ReadAllLinesAsync(Constants.InputFileName);
             var helpersCw = settingsFile.Select(line => new User(line)).Select(user => new CwHelper(user)).ToList();

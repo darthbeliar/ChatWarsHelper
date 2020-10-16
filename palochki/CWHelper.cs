@@ -15,6 +15,9 @@ namespace palochki
         private byte _arenasPlayed;
         private byte _skipHour;
         private bool _disabled;
+        private bool _arenasDisabled;
+        private bool _stamaDisabled;
+        private bool _autoGdefDisabled;
         public User User { get; }
         public TelegramClient Client { get; }
         public DialogHandler CwBot { get; set; }
@@ -35,6 +38,9 @@ namespace palochki
             _skipHour = 25;
             ArenaFightStarted = DateTime.MinValue;
             _disabled = User.Username == "алух";
+            _arenasDisabled = true;
+            _stamaDisabled = true;
+            _autoGdefDisabled = true;
         }
 
         public async Task InitHelper()
@@ -71,7 +77,7 @@ namespace palochki
 
         public async Task PerformStandardRoutine()
         {
-            _disabled = await CheckForDisability();
+            await CheckControls();
             if(_disabled)
                 return;
             var lastBotMsg = await CwBot.GetLastMessage();
@@ -113,26 +119,59 @@ namespace palochki
             Console.WriteLine($"{DateTime.Now}: {User.Username}: цикл проверок завершен");
         }
 
-        private async Task<bool> CheckForDisability()
+        private async Task CheckControls()
         {
             var lastMsg = await SavesChat.GetLastMessage();
-            if (lastMsg.Message == "stop bot")
-            {
-                await SavesChat.SendMessage("Бот остановлен");
-                return true;
-            }
 
-            if (lastMsg.Message == "start bot")
+            switch (lastMsg.Message)
             {
-                await SavesChat.SendMessage("Бот запущен");
-                return false;
+                case "help":
+                    await SavesChat.SendMessage(
+                        "stop bot = полностью выключить бота\nstart bot = полностью включить бота\nenable arenas = включить автоарены\ndisable arenas = выключить автоарены\nenable stama = включить автослив стамины\ndisable stama = выключить автослив стамины\nenable def = включить автогидеф\ndisable def = выключить автогидеф\nbot status = состояние функций бота");
+                    break;
+                case "bot status":
+                    await SavesChat.SendMessage(
+                        $"бот = {(_disabled?"выключен":"включен")}\nарены = {(_arenasDisabled?"выключены":"включены")}\nавтослив стамины = {(_stamaDisabled?"выключен":"включен")}\nавтогидеф = {(_autoGdefDisabled?"выключен":"включен")}");
+                    break;
+                case "stop bot":
+                    await SavesChat.SendMessage("Бот остановлен");
+                    _disabled = true;
+                    break;
+                case "start bot":
+                    await SavesChat.SendMessage("Бот запущен");
+                    _disabled = false;
+                    break;
+                case "enable arenas":
+                    await SavesChat.SendMessage("Автоарены включены");
+                    _arenasDisabled = false;
+                    break;
+                case "disable arenas":
+                    await SavesChat.SendMessage("Автоарены выключены");
+                    _arenasDisabled = true;
+                    break;
+                case "enable stama":
+                    await SavesChat.SendMessage("Автослив стамины включен");
+                    _stamaDisabled = false;
+                    break;
+                case "disable stama":
+                    await SavesChat.SendMessage("Автослив стамины выключен");
+                    _stamaDisabled = true;
+                    break;
+                case "enable def":
+                    await SavesChat.SendMessage("Автогдеф включен");
+                    _autoGdefDisabled = false;
+                    break;
+                case "disable def":
+                    await SavesChat.SendMessage("Автогдеф выключен");
+                    _autoGdefDisabled = true;
+                    break;
             }
-
-            return _disabled;
         }
 
         private async Task CheckForStaminaAfterBattle()
         {
+            if (_stamaDisabled)
+                return;
             var afterBattleHours = new[] {1, 9, 17};
             const int afterBattleMinute = 8;
             var time = DateTime.Now;
@@ -165,6 +204,8 @@ namespace palochki
 
         private async Task UseStamina()
         {
+            if(_stamaDisabled)
+                return;
             await CwBot.SendMessage(Constants.QuestsCommand);
             Thread.Sleep(1000);
             var botReply = await CwBot.GetLastMessage();
@@ -228,6 +269,8 @@ namespace palochki
 
         private async Task CheckForBattle()
         {
+            if(_autoGdefDisabled)
+                return;
             var battleHours = new[] {0, 8, 16};
             const int battleMinute = 59;
             var time = DateTime.Now;
@@ -255,6 +298,8 @@ namespace palochki
 
         private async Task ArenasCheck()
         {
+            if(_arenasDisabled)
+                return;
             var time = DateTime.Now;
             if(CheckArenaBlocks(time)) return;
 
@@ -288,7 +333,7 @@ namespace palochki
 
         private bool CheckArenaBlocks(DateTime time)
         {
-            var afterBattleHours = new[] {2, 9, 17};
+            var afterBattleHours = new[] {1, 9, 17};
             var nightHours = new[] {7,8,15,16,23,0};
 
             if (time.Hour == 13 && time.Minute <= 1)
