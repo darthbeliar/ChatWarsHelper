@@ -25,6 +25,7 @@ namespace palochki
         private bool _waitForStamaRegen;
         private short _xTarget;
         private short _yTarget;
+        private short _foodId;
 
         public HyperionHelper(User user)
         {
@@ -39,6 +40,7 @@ namespace palochki
             _waitForStamaRegen = false;
             _xTarget = 100;
             _yTarget = 100;
+            _foodId = 101;
         }
 
         public async Task InitHelper(TelegramClient client)
@@ -66,17 +68,10 @@ namespace palochki
         public async Task DoFarm()
         {
             await CheckControls();
-            if (_disabled)
-                return;
+            await CheckFood();
 
-            if (_xTarget != 100)
-            {
-                if (_xTarget == await GetX() && _yTarget == await GetY())
-                    _xTarget = 100;
-                else
-                    await DoStep(await CalculateDirection());
+            if (_disabled && _xTarget == 100)
                 return;
-            }
 
             if (_waitForStamaRegen)
             {
@@ -88,15 +83,6 @@ namespace palochki
             if(time < _pauseStart.AddSeconds(140) || time < _pauseFight.AddSeconds(12))
                 return;
 
-            if (!_farmInProcess && !await CharInTown())
-            {
-                _disabled = true;
-                await SavesChat.SendMessage("Для начала фарма нужно быть в городе");
-                return;
-            }
-
-            _farmInProcess = true;
-
             if (_inFight)
             {
                 _inFight = false;
@@ -104,6 +90,27 @@ namespace palochki
                     _timeToGoHome = true;
                 return;
             }
+
+            if (_xTarget != 100)
+            {
+                if (_xTarget == await GetX() && _yTarget == await GetY())
+                {
+                    _xTarget = 100;
+                    await SavesChat.SendMessage("пришли");
+                }
+                else
+                    await DoStep(await CalculateDirection());
+                return;
+            }
+
+            if (!_farmInProcess && await GetX() != await GetY())
+            {
+                _disabled = true;
+                await SavesChat.SendMessage("Для начала фарма нужно быть в городе");
+                return;
+            }
+
+            _farmInProcess = true;
 
             if (_timeToGoHome)
             {
@@ -115,6 +122,16 @@ namespace palochki
             else
             {
                 await DoStepToFarmSpot();
+            }
+        }
+
+        private async Task CheckFood()
+        {
+            var lastMsg = (await HyperionBot.GetLastMessage()).Message;
+            if (lastMsg.Contains("Похоже ты проголодался"))
+            {
+                await HyperionBot.SendMessage($"/eat_{_foodId}");
+                Thread.Sleep(1500);
             }
         }
 
@@ -165,19 +182,21 @@ namespace palochki
         private async Task DoStep(string direction)
         {
             var lastMsg = (await HyperionBot.GetLastMessage()).Message;
-            if (lastMsg.Contains(Constants.MobHere))
-                await Fight();
 
-            if (lastMsg.Contains("Похоже ты проголодался"))
+            if (lastMsg.Contains(Constants.MobHere))
             {
-                await HyperionBot.SendMessage("/eat_101");
-                Thread.Sleep(1500);
+                await Fight();
+                return;
             }
+
             await HyperionBot.SendMessage(direction);
             Thread.Sleep(1000);
             var reply = await HyperionBot.GetLastMessage();
             if (reply.Message == "Дерись!")
+            {
                 await Fight();
+                return;
+            }
 
             await StaminaCheck();
 
@@ -205,9 +224,15 @@ namespace palochki
             await HyperionBot.SendMessage("💤 Отдых");
             Thread.Sleep(1500);
 
-            while ((await HyperionBot.GetLastMessage()).Message != "Недостаточно меcта в рюкзаке")
+            await HyperionBot.SendMessage("🍗 Еда");
+            Thread.Sleep(1500);
+            var lastMsg = (await HyperionBot.GetLastMessage()).Message;
+            var foodComIndex = lastMsg.IndexOf($"/buy_{_foodId}_", StringComparison.Ordinal);
+            if (foodComIndex > 0)
             {
-                await HyperionBot.SendMessage("/buy_101");
+                var foodOrder = lastMsg.Substring(foodComIndex, 10);
+                await HyperionBot.SendMessage(foodOrder);
+                Thread.Sleep(1500);
             }
 
             _timeToGoHome = false;
@@ -222,7 +247,7 @@ namespace palochki
                 Thread.Sleep(1500);
                 lastMsg = (await HyperionBot.GetLastMessage()).Message;
             }
-            var currentHp = short.Parse(lastMsg.Split("❤️: ")[1].Substring(0, 2));
+            var currentHp = short.Parse(lastMsg.Split("❤️: ")[1].Split('/')[0]);
             var x = await GetX();
             for (int i = x; i > 10; i--)
             {
@@ -242,11 +267,11 @@ namespace palochki
             var input = (await HyperionBot.GetLastMessage()).Message;
             if (!input.Contains("↕️"))
             {
-                await HyperionBot.SendMessage("🏋️‍♂️ Профиль");
+                await HyperionBot.SendMessage("👣 Перемещение");
                 Thread.Sleep(1500);
                 input = (await HyperionBot.GetLastMessage()).Message;
             }
-            return short.Parse(input.Split("↕️: ")[1].Substring(0, 2));
+            return short.Parse(input.Split("↕️: ")[1].Substring(0, 3));
         }
 
         private async Task<short> GetY()
@@ -254,11 +279,11 @@ namespace palochki
             var input = (await HyperionBot.GetLastMessage()).Message;
             if (!input.Contains("↕️"))
             {
-                await HyperionBot.SendMessage("🏋️‍♂️ Профиль");
+                await HyperionBot.SendMessage("👣 Перемещение");
                 Thread.Sleep(1500);
                 input = (await HyperionBot.GetLastMessage()).Message;
             }
-            return short.Parse(input.Split("↔️: ")[1].Substring(0, 2));
+            return short.Parse(input.Split("↔️: ")[1].Substring(0, 3));
         }
 
         private async Task CheckControls()
@@ -302,6 +327,27 @@ namespace palochki
                 }
             }
 
+            if (lastMsg.Message.Contains("set_food_id"))
+            {
+                var parsedString = lastMsg.Message.Split(' ');
+                if (parsedString.Length != 2)
+                {
+                    await SavesChat.SendMessage("неверный формат команды. нужно: set_food_id Х");
+                }
+                else
+                {
+                    var firstCheck = short.TryParse(parsedString[1],out var foodId);
+                    if (firstCheck)
+                    {
+                        _foodId = foodId;
+                    }
+                    else
+                    {
+                        await SavesChat.SendMessage("неверный формат команды. нужно: set_food_id Х");
+                    }
+                }
+            }
+
             if (lastMsg.Message.Contains("set_farm_spot"))
             {
                 var parsedString = lastMsg.Message.Split(' ');
@@ -327,11 +373,14 @@ namespace palochki
             if (lastMsg.Message.Contains("move_to"))
             {
                 var parsedString = lastMsg.Message.Split(' ');
-                if (parsedString.Length != 2)
+                if (parsedString.Length != 3)
                 {
                     await SavesChat.SendMessage("неверный формат команды. нужно: move_to Х Y");
-                    var firstCheck = short.TryParse(parsedString[1],out var x);
-                    var secondCheck = short.TryParse(parsedString[2],out var y);
+                }
+                else
+                {
+                    var firstCheck = short.TryParse(parsedString[1], out var x);
+                    var secondCheck = short.TryParse(parsedString[2], out var y);
                     if (firstCheck && secondCheck)
                     {
                         _xTarget = x;
@@ -339,7 +388,8 @@ namespace palochki
                     }
                     else
                     {
-                        await SavesChat.SendMessage("неверный формат команды. нужно: set_mob_damage Х Y\nгде х-лвл моба и у-его урон");
+                        await SavesChat.SendMessage(
+                            "неверный формат команды. нужно: set_mob_damage Х Y\nгде х-лвл моба и у-его урон");
                     }
                 }
             }

@@ -64,6 +64,8 @@ namespace palochki
             var savesChatIds = savesChatIdsQuery.Split('\t');
             SavesChat = new DialogHandler(Client, Convert.ToInt32(savesChatIds[0]), Convert.ToInt64(savesChatIds[1]));
 
+            await SavesChat.SendMessage("Бот перезапущен");
+
             if (User.ResultsChatName != Constants.AbsendResultsChat)
             {
                 var resChatIdsQuery = await ExtraUtilities.GetChannelIdsByName(Client, User.ResultsChatName);
@@ -164,6 +166,12 @@ namespace palochki
                 case "disable def":
                     await SavesChat.SendMessage("Автогдеф выключен");
                     _autoGdefDisabled = true;
+                    break;
+                case "enable all":
+                    await SavesChat.SendMessage("Все функции активированы");
+                    _autoGdefDisabled = false;
+                    _stamaDisabled = false;
+                    _arenasDisabled = false;
                     break;
             }
         }
