@@ -27,30 +27,48 @@ namespace palochki
 
         private static async Task<List<HyperionHelper>> PrepareHelpersHyp(List<CwHelper> helpersCw)
         {
-            var settingsFile = await File.ReadAllLinesAsync(Constants.InputFileName);
-            var helpersHyp = settingsFile.Select(line => new User(line)).Select(user => new HyperionHelper(user))
-                .Where(h => h.User.HyperionUser).ToList();
-
-
-            foreach (var helperHyp in helpersHyp)
+            try
             {
-                var client = helpersCw.FirstOrDefault(h => h.User.Username == helperHyp.User.Username)?.Client;
-                await helperHyp.InitHelper(client);
-            }
+                var settingsFile = await File.ReadAllLinesAsync(Constants.InputFileName);
+                var helpersHyp = settingsFile.Select(line => new User(line)).Select(user => new HyperionHelper(user))
+                    .Where(h => h.User.HyperionUser).ToList();
 
-            return helpersHyp;
+
+                foreach (var helperHyp in helpersHyp)
+                {
+                    var client = helpersCw.FirstOrDefault(h => h.User.Username == helperHyp.User.Username)?.Client;
+                    await helperHyp.InitHelper(client);
+                }
+
+                return helpersHyp;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                Console.ReadLine();
+                throw;
+            }
         }
 
         private static async Task<List<CwHelper>> PrepareHelpersCw()
         {
-            var settingsFile = await File.ReadAllLinesAsync(Constants.InputFileName);
-            var helpersCw = settingsFile.Select(line => new User(line)).Select(user => new CwHelper(user)).ToList();
-            foreach (var cwHelper in helpersCw)
+            try
             {
-                await cwHelper.InitHelper();
-            }
+                var settingsFile = await File.ReadAllLinesAsync(Constants.InputFileName);
+                var helpersCw = settingsFile.Select(line => new User(line)).Select(user => new CwHelper(user)).ToList();
+                foreach (var cwHelper in helpersCw)
+                {
+                    await cwHelper.InitHelper();
+                }
 
-            return helpersCw;
+                return helpersCw;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                Console.ReadLine();
+                throw;
+            }
         }
 
         // ReSharper disable once FunctionRecursiveOnAllPaths

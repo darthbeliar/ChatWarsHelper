@@ -60,6 +60,8 @@ namespace palochki
             SavesChat = new DialogHandler(Client, Convert.ToInt32(savesChatIds[0]), Convert.ToInt64(savesChatIds[1]));
 
             _mobsDamage = (await File.ReadAllLinesAsync(Constants.HyperionSettingsFileName + '_' + User.Username)).ToList();
+            _farmSpot = short.Parse(await File.ReadAllTextAsync("farm_spot_" + User.Username));
+            _foodId = short.Parse(await File.ReadAllTextAsync("food_id_" + User.Username));
 
             Console.WriteLine(
                 $"\nПользователь {User.Username} подключен к Гипериону\n");
@@ -68,7 +70,6 @@ namespace palochki
         public async Task DoFarm()
         {
             await CheckControls();
-            await CheckFood();
 
             if (_disabled && _xTarget == 100)
                 return;
@@ -90,6 +91,8 @@ namespace palochki
                     _timeToGoHome = true;
                 return;
             }
+
+            await CheckFood();
 
             if (_xTarget != 100)
             {
@@ -132,6 +135,9 @@ namespace palochki
             {
                 await HyperionBot.SendMessage($"/eat_{_foodId}");
                 Thread.Sleep(1500);
+                var lastMsgs = await HyperionBot.GetLastMessages(4);
+                if (lastMsgs.Any(m => m.Message.Contains(Constants.MobHere)))
+                    await Fight();
             }
         }
 
@@ -189,6 +195,12 @@ namespace palochki
                 return;
             }
 
+            if (lastMsg.Contains("⚡️: 0"))
+            {
+                _waitForStamaRegen = true;
+                return;
+            }
+
             await HyperionBot.SendMessage(direction);
             Thread.Sleep(1000);
             var reply = await HyperionBot.GetLastMessage();
@@ -213,8 +225,19 @@ namespace palochki
         private async Task StaminaCheck()
         {
             var lastMsg = (await HyperionBot.GetLastMessage()).Message;
-            if (lastMsg == "Ты отдохнул и можешь отправляться дальше")
+            if (lastMsg == "Ты немного отдохнул и можешь продолжать свой путь")
+            {
                 _waitForStamaRegen = false;
+                var preWaitMsgs = await HyperionBot.GetLastMessages(3);
+                if (preWaitMsgs.Any(m=>m.Message.Contains("проголодался")))
+                {
+                    await HyperionBot.SendMessage($"/eat_{_foodId}");
+                    Thread.Sleep(1500);
+                }
+                if (preWaitMsgs.Any(m => m.Message.Contains(Constants.MobHere)))
+                    await Fight();
+            }
+
             if (lastMsg.Contains("Ты слишком устал, чтобы это делать."))
                 _waitForStamaRegen = true;
         }
@@ -230,7 +253,7 @@ namespace palochki
             var foodComIndex = lastMsg.IndexOf($"/buy_{_foodId}_", StringComparison.Ordinal);
             if (foodComIndex > 0)
             {
-                var foodOrder = lastMsg.Substring(foodComIndex, 10);
+                var foodOrder = lastMsg.Substring(foodComIndex, 11);
                 await HyperionBot.SendMessage(foodOrder);
                 Thread.Sleep(1500);
             }
@@ -340,6 +363,8 @@ namespace palochki
                     if (firstCheck)
                     {
                         _foodId = foodId;
+                        await SavesChat.SendMessage($"задан id еды = {foodId}");
+                        await File.WriteAllTextAsync("food_id_" + User.Username, foodId.ToString());
                     }
                     else
                     {
@@ -362,6 +387,7 @@ namespace palochki
                     {
                         _farmSpot = mobLvl;
                         await SavesChat.SendMessage($"задан уровень фарма = {mobLvl}");
+                        await File.WriteAllTextAsync("farm_spot_" + User.Username, _farmSpot.ToString());
                     }
                     else
                     {
@@ -392,6 +418,22 @@ namespace palochki
                             "неверный формат команды. нужно: set_mob_damage Х Y\nгде х-лвл моба и у-его урон");
                     }
                 }
+            }
+
+            if (lastMsg.Message.Contains("show_dmg_list"))
+            {
+                var textToSend = _mobsDamage.Aggregate("", (current, s) => current + $"{s}\n");
+                await SavesChat.SendMessage(textToSend);
+            }
+
+            if (lastMsg.Message.Contains("help hyp"))
+            {
+                var textToSend = "set_mob_damage Х Y где х-лвл моба и у-его урон\nтекущие = show_dmg_list\n";
+                textToSend += $"set_food_id Х\nтекущий = {_foodId}\n";
+                textToSend += $"set_farm_spot Х где х-лвл моба\nтекущий = {_farmSpot}\n";
+                textToSend += "move_to Х Y = перейти по координатам";
+                await SavesChat.SendMessage(textToSend);
+                await SavesChat.SendMessage("start_farm = включить фарм(нужно быть наа диагонали города(х=у)");
             }
         }
     }
