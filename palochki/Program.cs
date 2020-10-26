@@ -45,7 +45,7 @@ namespace palochki
             catch (Exception e)
             {
                 Console.WriteLine(e);
-                Console.ReadLine();
+                Thread.Sleep(20000);
                 throw;
             }
         }
@@ -66,7 +66,7 @@ namespace palochki
             catch (Exception e)
             {
                 Console.WriteLine(e);
-                Console.ReadLine();
+                Thread.Sleep(30000);
                 throw;
             }
         }
@@ -95,6 +95,7 @@ namespace palochki
             {
                 Console.WriteLine(e);
                 await File.AppendAllTextAsync(Constants.ErrorLogFileName, $"{DateTime.Now}\n{e.Message}\n");
+                Thread.Sleep(30000);
                 await MainLoop(helpersCw,helpersHyp);
                 throw;
             }

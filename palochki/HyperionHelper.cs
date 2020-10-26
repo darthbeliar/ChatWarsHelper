@@ -19,13 +19,18 @@ namespace palochki
         private short _farmSpot;
         private bool _farmInProcess;
         private bool _timeToGoHome;
-        private DateTime _pauseStart;
-        private DateTime _pauseFight;
-        private bool _inFight;
-        private bool _waitForStamaRegen;
+        private bool _outOfFood;
         private short _xTarget;
         private short _yTarget;
+        private short _x;
+        private short _y;
+        private short _energy;
+        private short _food;
+        private short _hp;
         private short _foodId;
+        private bool _rested;
+
+        private static readonly string[] BannedStrings = {"Исцеление","Ваша ставка","теперь под контролем", "Похоже ты проголодался.", "отдохнул и можешь","Ты отметился о готовности","У тебя нет в наличии eды"};
 
         public HyperionHelper(User user)
         {
@@ -33,14 +38,17 @@ namespace palochki
             _disabled = true;
             _farmInProcess = false;
             _timeToGoHome = false;
-            _pauseStart = DateTime.MinValue;
-            _pauseFight = DateTime.MinValue;
-            _inFight = false;
+            _outOfFood = false;
             _farmSpot = 11;
-            _waitForStamaRegen = false;
             _xTarget = 100;
             _yTarget = 100;
+            _x = 0;
+            _y = 0;
+            _hp = 0;
+            _energy = 0;
+            _food = 0;
             _foodId = 101;
+            _rested = false;
         }
 
         public async Task InitHelper(TelegramClient client)
@@ -70,54 +78,93 @@ namespace palochki
         public async Task DoFarm()
         {
             await CheckControls();
+            var lastMsg = await HyperionBot.GetLastMessage();
+
+            if (lastMsg.Message.Contains("У тебя есть две минуты на ответ"))
+            {
+                await HyperionBot.PressButton(lastMsg, 0, 0);
+            }
 
             if (_disabled && _xTarget == 100)
                 return;
 
-            if (_waitForStamaRegen)
+            await UpdateCharStats();
+
+            foreach (var bannedString in BannedStrings)
             {
-                await StaminaCheck();
+                if (!lastMsg.Message.Contains(bannedString)) continue;
+
+                var hist = (await HyperionBot.GetLastMessages(10)).OrderByDescending(m=>m.Date).ToArray();
+                foreach (var mes in hist)
+                {
+                    var isBadToo = false;
+                    foreach (var bannedString2 in BannedStrings)
+                        if (mes.Message.Contains(bannedString2))
+                            isBadToo = true;
+                    if (!isBadToo)
+                        lastMsg = mes;
+                    else
+                    {
+                        if (mes.Message.Contains("У тебя нет в наличии eды"))
+                            _outOfFood = true;
+                        if (mes.Message.Contains("отдохнул и можешь"))
+                            _rested = true;
+                    }
+                }
+            }
+
+            if(lastMsg.Message.Contains("Ты напал на моба") || lastMsg.Message.Contains("Ты отправился в дорогу."))
+                return;
+
+            if (lastMsg.Message.Contains("Перед тобой стоит"))
+            {
+                await Fight();
                 return;
             }
 
-            var time = DateTime.Now;
-            if(time < _pauseStart.AddSeconds(140) || time < _pauseFight.AddSeconds(12))
-                return;
-
-            if (_inFight)
+            if (_food == 0 && !_outOfFood)
             {
-                _inFight = false;
-                if (!await CheckHp())
-                    _timeToGoHome = true;
-                return;
+                if (lastMsg.Message.Contains("Ты съел"))
+                    _food = 1;
+                else
+                    await HyperionBot.SendMessage($"/eat_{_foodId}");
             }
 
-            await CheckFood();
+            if (_energy == 0)
+            {
+                if (_rested)
+                    _rested = false;
+                else
+                    return;
+            }
 
             if (_xTarget != 100)
             {
-                if (_xTarget == await GetX() && _yTarget == await GetY())
+                if (_xTarget == _x && _yTarget == _y)
                 {
                     _xTarget = 100;
                     await SavesChat.SendMessage("пришли");
+                    return;
                 }
-                else
-                    await DoStep(await CalculateDirection());
-                return;
+
+                await DoStep(CalculateDirection());
+                return; 
             }
 
-            if (!_farmInProcess && await GetX() != await GetY())
+            if (!_farmInProcess && (_x != _y || _x >= _farmSpot))
             {
                 _disabled = true;
-                await SavesChat.SendMessage("Для начала фарма нужно быть в городе");
+                await SavesChat.SendMessage("Для начала фарма нужно быть в городе или основной диагонали ниже места фарма");
                 return;
             }
-
+            
             _farmInProcess = true;
+
+            CheckHp();
 
             if (_timeToGoHome)
             {
-                if (await CharInTown())
+                if (CharInTown())
                     await DoRegen();
                 else
                     await DoStepToTown();
@@ -128,36 +175,41 @@ namespace palochki
             }
         }
 
-        private async Task CheckFood()
+        private async Task UpdateCharStats()
         {
-            var lastMsg = (await HyperionBot.GetLastMessage()).Message;
-            if (lastMsg.Contains("Похоже ты проголодался"))
+            var hist = await HyperionBot.GetLastMessages(10);
+            var lastStatsMsg = hist.OrderByDescending(m => m.Date).FirstOrDefault(m => m.Message.Contains("⚡️:"))
+                ?.Message;
+            if (lastStatsMsg == null)
             {
-                await HyperionBot.SendMessage($"/eat_{_foodId}");
+                await HyperionBot.SendMessage("🏋️‍♂️ Профиль");
                 Thread.Sleep(1500);
-                var lastMsgs = await HyperionBot.GetLastMessages(4);
-                if (lastMsgs.Any(m => m.Message.Contains(Constants.MobHere)))
-                    await Fight();
+                lastStatsMsg = (await HyperionBot.GetLastMessage()).Message;
             }
+
+            _hp = short.Parse(lastStatsMsg.Split("❤️: ")[1].Split('/')[0]);
+            _x = short.Parse(lastStatsMsg.Split("↕️: ")[1].Substring(0, 3));
+            _y = short.Parse(lastStatsMsg.Split("↔️: ")[1].Substring(0, 3));
+            _food = short.Parse(lastStatsMsg.Split("🍖: ")[1].Split('/')[0]!);
+            _energy = short.Parse(lastStatsMsg.Split("⚡️: ")[1].Split('/')[0]!);
+
         }
 
-        private async Task<string> CalculateDirection()
+        private string CalculateDirection()
         {
-            var x = await GetX();
-            var y = await GetY();
-            if (x < _xTarget && y < _yTarget)
+            if (_x < _xTarget && _y < _yTarget)
                 return "↗️ СВ";
-            if (x < _xTarget && y == _yTarget)
+            if (_x < _xTarget && _y == _yTarget)
                 return "⬆️ Север";
-            if (x < _xTarget && y > _yTarget)
+            if (_x < _xTarget && _y > _yTarget)
                 return "↖️ CЗ";
-            if (x == _xTarget && y < _yTarget)
+            if (_x == _xTarget && _y < _yTarget)
                 return "➡️ Восток";
-            if (x == _xTarget && y > _yTarget)
+            if (_x == _xTarget && _y > _yTarget)
                 return "⬅️ Запад";
-            if (x > _xTarget && y < _yTarget)
+            if (_x > _xTarget && _y < _yTarget)
                 return "↘️ ЮВ";
-            if (x > _xTarget && y == _yTarget)
+            if (_x > _xTarget && _y == _yTarget)
                 return "⬇️ Юг";
             return "↙️ ЮЗ";
         }
@@ -165,12 +217,10 @@ namespace palochki
         private async Task DoStepToFarmSpot()
         {
             string direction;
-            var x = await GetX();
-            var y = await GetY();
 
-            if (x == _farmSpot)
+            if (_x == _farmSpot)
             {
-                direction = x == y ? "⬅️ Запад" : "➡️ Восток";
+                direction = _x == _y ? "⬅️ Запад" : "➡️ Восток";
             }
             else
                 direction = "↗️ СВ";
@@ -180,67 +230,33 @@ namespace palochki
         private async Task DoStepToTown()
         {
             var direction = "⬇️ Юг";
-            if (await GetX() == await GetY())
+            if (_x == _y)
                 direction = "↙️ ЮЗ";
             await DoStep(direction);
         }
 
         private async Task DoStep(string direction)
         {
-            var lastMsg = (await HyperionBot.GetLastMessage()).Message;
-
-            if (lastMsg.Contains(Constants.MobHere))
-            {
-                await Fight();
-                return;
-            }
-
-            if (lastMsg.Contains("⚡️: 0"))
-            {
-                _waitForStamaRegen = true;
-                return;
-            }
-
             await HyperionBot.SendMessage(direction);
             Thread.Sleep(1000);
             var reply = await HyperionBot.GetLastMessage();
             if (reply.Message == "Дерись!")
             {
                 await Fight();
-                return;
             }
-
-            await StaminaCheck();
-
-            _pauseStart = DateTime.Now;
         }
 
         private async Task Fight()
         {
-            await HyperionBot.SendMessage("🔪 В бой");
-            _inFight = true;
-            _pauseFight = DateTime.Now;
-        }
-
-        private async Task StaminaCheck()
-        {
-            var lastMsg = (await HyperionBot.GetLastMessage()).Message;
-            if (lastMsg == "Ты немного отдохнул и можешь продолжать свой путь")
+            var currentMobDamage = short.Parse(_mobsDamage[_x - 11].Split('-')[1]);
+            if (_hp <= 1.5 * currentMobDamage)
             {
-                _waitForStamaRegen = false;
-                var preWaitMsgs = await HyperionBot.GetLastMessages(3);
-                if (preWaitMsgs.Any(m=>m.Message.Contains("проголодался")))
-                {
-                    await HyperionBot.SendMessage($"/eat_{_foodId}");
-                    Thread.Sleep(1500);
-                }
-                if (preWaitMsgs.Any(m => m.Message.Contains(Constants.MobHere)))
-                    await Fight();
+                await HyperionBot.SendMessage("❤️ Исцеление");
+                Thread.Sleep(2000);
             }
-
-            if (lastMsg.Contains("Ты слишком устал, чтобы это делать."))
-                _waitForStamaRegen = true;
+            await HyperionBot.SendMessage("🔪 В бой");
         }
+
 
         private async Task DoRegen()
         {
@@ -258,55 +274,28 @@ namespace palochki
                 Thread.Sleep(1500);
             }
 
+            await HyperionBot.SendMessage("/really_sell_all");
+            Thread.Sleep(1500);
             _timeToGoHome = false;
+            _outOfFood = false;
         }
 
-        private async Task<bool> CheckHp()
+        private bool CharInTown()
         {
-            var lastMsg = (await HyperionBot.GetLastMessage()).Message;
-            if (!lastMsg.Contains('❤'))
-            {
-                await HyperionBot.SendMessage("🏋️‍♂️ Профиль");
-                Thread.Sleep(1500);
-                lastMsg = (await HyperionBot.GetLastMessage()).Message;
-            }
-            var currentHp = short.Parse(lastMsg.Split("❤️: ")[1].Split('/')[0]);
-            var x = await GetX();
-            for (int i = x; i > 10; i--)
+            return _x == 10 && _y == 10;
+        }
+
+        private void CheckHp()
+        {
+            var currentHp = _hp;
+
+            for (int i = _x; i > 10; i--)
             {
                 currentHp -= short.Parse(_mobsDamage[i - 11].Split('-')[1]);
             }
 
-            return currentHp > 0;
-        }
-
-        private async Task<bool> CharInTown()
-        {
-            return await GetX() == 10 && await GetY() == 10;
-        }
-
-        private async Task<short> GetX()
-        {
-            var input = (await HyperionBot.GetLastMessage()).Message;
-            if (!input.Contains("↕️"))
-            {
-                await HyperionBot.SendMessage("👣 Перемещение");
-                Thread.Sleep(1500);
-                input = (await HyperionBot.GetLastMessage()).Message;
-            }
-            return short.Parse(input.Split("↕️: ")[1].Substring(0, 3));
-        }
-
-        private async Task<short> GetY()
-        {
-            var input = (await HyperionBot.GetLastMessage()).Message;
-            if (!input.Contains("↕️"))
-            {
-                await HyperionBot.SendMessage("👣 Перемещение");
-                Thread.Sleep(1500);
-                input = (await HyperionBot.GetLastMessage()).Message;
-            }
-            return short.Parse(input.Split("↔️: ")[1].Substring(0, 3));
+            if (currentHp <= 0)
+                _timeToGoHome = true;
         }
 
         private async Task CheckControls()
@@ -322,6 +311,7 @@ namespace palochki
                 case "start_farm":
                     await SavesChat.SendMessage("Бот запущен");
                     _disabled = false;
+                    _timeToGoHome = false;
                     break;
             }
 
