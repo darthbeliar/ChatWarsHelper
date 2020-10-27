@@ -96,6 +96,10 @@ namespace palochki
                 Console.WriteLine(e);
                 await File.AppendAllTextAsync(Constants.ErrorLogFileName, $"{DateTime.Now}\n{e.Message}\n");
                 Thread.Sleep(30000);
+                foreach (var cwHelper in helpersCw)
+                {
+                    await cwHelper.Client.ConnectAsync();
+                }
                 await MainLoop(helpersCw,helpersHyp);
                 throw;
             }

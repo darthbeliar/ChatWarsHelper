@@ -30,7 +30,7 @@ namespace palochki
         private short _foodId;
         private bool _rested;
 
-        private static readonly string[] BannedStrings = {"Исцеление","Ваша ставка","теперь под контролем", "Похоже ты проголодался.", "отдохнул и можешь","Ты отметился о готовности","У тебя нет в наличии eды"};
+        private static string[] _bannedStrings;
 
         public HyperionHelper(User user)
         {
@@ -58,6 +58,8 @@ namespace palochki
                 _disabled = true;
                 return;
             }
+
+            _bannedStrings = await File.ReadAllLinesAsync("bannedStrings");
             Client = client;
             var botIdsQuery = await ExtraUtilities.GetBotIdsByName(Client, Constants.HyperionBotName);
             var botIds = botIdsQuery.Split('\t');
@@ -90,7 +92,7 @@ namespace palochki
 
             await UpdateCharStats();
 
-            foreach (var bannedString in BannedStrings)
+            foreach (var bannedString in _bannedStrings)
             {
                 if (!lastMsg.Message.Contains(bannedString)) continue;
 
@@ -98,18 +100,19 @@ namespace palochki
                 foreach (var mes in hist)
                 {
                     var isBadToo = false;
-                    foreach (var bannedString2 in BannedStrings)
+                    foreach (var bannedString2 in _bannedStrings)
                         if (mes.Message.Contains(bannedString2))
                             isBadToo = true;
                     if (!isBadToo)
-                        lastMsg = mes;
-                    else
                     {
-                        if (mes.Message.Contains("У тебя нет в наличии eды"))
-                            _outOfFood = true;
-                        if (mes.Message.Contains("отдохнул и можешь"))
-                            _rested = true;
+                        lastMsg = mes;
+                        break;
                     }
+
+                    if (mes.Message.Contains("У тебя нет в наличии eды"))
+                        _outOfFood = true;
+                    if (mes.Message.Contains("отдохнул и можешь"))
+                        _rested = true;
                 }
             }
 
@@ -127,7 +130,13 @@ namespace palochki
                 if (lastMsg.Message.Contains("Ты съел"))
                     _food = 1;
                 else
+                {
                     await HyperionBot.SendMessage($"/eat_{_foodId}");
+                    Thread.Sleep(2000);
+                    var mes = await HyperionBot.GetLastMessage();
+                    if (mes.Message.Contains("У тебя нет в наличии eды"))
+                        _outOfFood = true;
+                }
             }
 
             if (_energy == 0)
@@ -151,7 +160,7 @@ namespace palochki
                 return; 
             }
 
-            if (!_farmInProcess && (_x != _y || _x >= _farmSpot))
+            if (!_farmInProcess && (_x != _y || _x > _farmSpot))
             {
                 _disabled = true;
                 await SavesChat.SendMessage("Для начала фарма нужно быть в городе или основной диагонали ниже места фарма");
@@ -248,12 +257,16 @@ namespace palochki
 
         private async Task Fight()
         {
-            var currentMobDamage = short.Parse(_mobsDamage[_x - 11].Split('-')[1]);
-            if (_hp <= 1.5 * currentMobDamage)
+            if (_x > 10)
             {
-                await HyperionBot.SendMessage("❤️ Исцеление");
-                Thread.Sleep(2000);
+                var currentMobDamage = short.Parse(_mobsDamage[_x - 11].Split('-')[1]);
+                if (_hp <= 1.5 * currentMobDamage)
+                {
+                    await HyperionBot.SendMessage("❤️ Исцеление");
+                    Thread.Sleep(2000);
+                }
             }
+
             await HyperionBot.SendMessage("🔪 В бой");
         }
 
@@ -288,6 +301,8 @@ namespace palochki
         private void CheckHp()
         {
             var currentHp = _hp;
+            if (_x <= 10 || _y <= 10)
+                return;
 
             for (int i = _x; i > 10; i--)
             {

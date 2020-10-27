@@ -25,6 +25,7 @@ namespace palochki
         public ChannelHandler GuildChat { get; set; }
         public ChannelHandler CorovansLogChat { get; set; }
         private string _lastFoundFight;
+        private bool _disabledRat;
         public DateTime ArenaFightStarted { get; private set; }
 
         public CwHelper(User user)
@@ -37,10 +38,11 @@ namespace palochki
             _arenasPlayed = 0;
             _skipHour = 25;
             ArenaFightStarted = DateTime.MinValue;
-            _disabled = User.Username == "алух";
+            _disabled = false;
             _arenasDisabled = true;
             _stamaDisabled = true;
             _autoGdefDisabled = true;
+            _disabledRat = false;
         }
 
         public async Task InitHelper()
@@ -80,7 +82,7 @@ namespace palochki
         public async Task PerformStandardRoutine()
         {
             await CheckControls();
-            if(_disabled)
+            if(_disabled || User.Username == "алух" && _disabledRat)
                 return;
             var lastBotMsg = await CwBot.GetLastMessage();
             var last3BotMsgs = await CwBot.GetLastMessages(3);
@@ -142,6 +144,8 @@ namespace palochki
                 case "start bot":
                     await SavesChat.SendMessage("Бот запущен");
                     _disabled = false;
+                    if (User.Username == "алух")
+                        _disabledRat = false;
                     break;
                 case "enable arenas":
                     await SavesChat.SendMessage("Автоарены включены");
@@ -166,6 +170,10 @@ namespace palochki
                 case "disable def":
                     await SavesChat.SendMessage("Автогдеф выключен");
                     _autoGdefDisabled = true;
+                    break;
+                case "disable rat":
+                    _disabledRat = true;
+
                     break;
                 case "enable all":
                     await SavesChat.SendMessage("Все функции активированы");
