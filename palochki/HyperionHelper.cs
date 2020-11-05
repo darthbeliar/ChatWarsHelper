@@ -26,6 +26,7 @@ namespace palochki
         private short _y;
         private short _energy;
         private short _food;
+        private short _manaForHeal;
         private short _hp;
         private short _foodId;
         private bool _rested;
@@ -47,6 +48,7 @@ namespace palochki
             _hp = 0;
             _energy = 0;
             _food = 0;
+            _manaForHeal = 1000;
             _foodId = 101;
             _rested = false;
         }
@@ -72,6 +74,15 @@ namespace palochki
             _mobsDamage = (await File.ReadAllLinesAsync(Constants.HyperionSettingsFileName + '_' + User.Username)).ToList();
             _farmSpot = short.Parse(await File.ReadAllTextAsync("farm_spot_" + User.Username));
             _foodId = short.Parse(await File.ReadAllTextAsync("food_id_" + User.Username));
+            _manaForHeal = short.Parse(await File.ReadAllTextAsync("manaForHeal_" + User.Username));
+            var state = (await File.ReadAllLinesAsync("HypState_" + User.Username)).ToList();
+            _disabled = state[0] == "True";
+            _farmInProcess = state[1] == "True";
+            _timeToGoHome = state[2] == "True";
+            _outOfFood = state[3] == "True";
+            _rested = state[4] == "True";
+            _xTarget = short.Parse(state[5]);
+            _yTarget = short.Parse(state[6]);
 
             Console.WriteLine(
                 $"\nПользователь {User.Username} подключен к Гипериону\n");
@@ -80,11 +91,15 @@ namespace palochki
         public async Task DoFarm()
         {
             await CheckControls();
+            await SaveState();
             var lastMsg = await HyperionBot.GetLastMessage();
+            var lastMsgs = await HyperionBot.GetLastMessages(4);
 
-            if (lastMsg.Message.Contains("У тебя есть две минуты на ответ"))
+            if (lastMsgs.Any(m=>m.Message.Contains("У тебя есть две минуты на ответ")))
             {
-                await HyperionBot.PressButton(lastMsg, 0, 0);
+                var msg = lastMsgs.FirstOrDefault(m => m.Message.Contains("У тебя есть две минуты на ответ"));
+                await HyperionBot.PressButton(msg, 0, 0);
+                return;
             }
 
             if (_disabled && _xTarget == 100)
@@ -103,7 +118,7 @@ namespace palochki
                     foreach (var bannedString2 in _bannedStrings)
                         if (mes.Message.Contains(bannedString2))
                             isBadToo = true;
-                    if (!isBadToo)
+                    if (!isBadToo && mes.FromId == HyperionBot.Peer.UserId)
                     {
                         lastMsg = mes;
                         break;
@@ -123,6 +138,16 @@ namespace palochki
             {
                 await Fight();
                 return;
+            }
+
+            if (lastMsg.Message.Contains("Внимание, вы перегружены и не можете идти."))
+            {
+                await HyperionBot.SendMessage($"🛡 Оружие/броня");
+                Thread.Sleep(1500);
+                var inv = (await HyperionBot.GetLastMessage()).Message;
+                var delCommand = inv.Split("🗑: ")[1].Split('\n')[0];
+                await HyperionBot.SendMessage(delCommand);
+                Thread.Sleep(1500);
             }
 
             if (_food == 0 && !_outOfFood)
@@ -169,7 +194,7 @@ namespace palochki
             
             _farmInProcess = true;
 
-            CheckHp();
+            await CheckHp();
 
             if (_timeToGoHome)
             {
@@ -182,6 +207,19 @@ namespace palochki
             {
                 await DoStepToFarmSpot();
             }
+        }
+
+        private async Task SaveState()
+        {
+            var state = new string[7];
+            state[0] = _disabled.ToString();
+            state[1] = _farmInProcess.ToString();
+            state[2] = _timeToGoHome.ToString();
+            state[3] = _outOfFood.ToString();
+            state[4] = _rested.ToString();
+            state[5] = _xTarget.ToString();
+            state[6] = _yTarget.ToString();
+            await File.WriteAllLinesAsync("HypState_" + User.Username, state);
         }
 
         private async Task UpdateCharStats()
@@ -201,7 +239,6 @@ namespace palochki
             _y = short.Parse(lastStatsMsg.Split("↔️: ")[1].Substring(0, 3));
             _food = short.Parse(lastStatsMsg.Split("🍖: ")[1].Split('/')[0]!);
             _energy = short.Parse(lastStatsMsg.Split("⚡️: ")[1].Split('/')[0]!);
-
         }
 
         private string CalculateDirection()
@@ -298,8 +335,10 @@ namespace palochki
             return _x == 10 && _y == 10;
         }
 
-        private void CheckHp()
+        private async Task CheckHp()
         {
+            if(_timeToGoHome)
+                return;
             var currentHp = _hp;
             if (_x <= 10 || _y <= 10)
                 return;
@@ -310,7 +349,25 @@ namespace palochki
             }
 
             if (currentHp <= 0)
+            {
+                if(await TryToHeal())
+                    return;
                 _timeToGoHome = true;
+            }
+        }
+
+        private async Task<bool> TryToHeal()
+        {
+            await HyperionBot.SendMessage("🏋️‍♂️ Профиль");
+            Thread.Sleep(1500);
+
+            var lastStatsMsg = (await HyperionBot.GetLastMessage()).Message;
+            var mana = short.Parse(lastStatsMsg.Split("🔮: ")[1].Split('/')[0]!);
+            if (mana < 2 * _manaForHeal) return false;
+
+            await HyperionBot.SendMessage("❤️ Исцеление");
+            Thread.Sleep(1500);
+            return true;
         }
 
         private async Task CheckControls()
@@ -327,6 +384,7 @@ namespace palochki
                     await SavesChat.SendMessage("Бот запущен");
                     _disabled = false;
                     _timeToGoHome = false;
+                    _outOfFood = false;
                     break;
             }
 
@@ -378,6 +436,29 @@ namespace palochki
                 }
             }
 
+            if (lastMsg.Message.Contains("set_manaForHeal"))
+            {
+                var parsedString = lastMsg.Message.Split(' ');
+                if (parsedString.Length != 2)
+                {
+                    await SavesChat.SendMessage("неверный формат команды. нужно: set_manaForHeal Х");
+                }
+                else
+                {
+                    var firstCheck = short.TryParse(parsedString[1],out var mana);
+                    if (firstCheck)
+                    {
+                        _manaForHeal = mana;
+                        await SavesChat.SendMessage($"задана мана на хил = {mana}");
+                        await File.WriteAllTextAsync("manaForHeal_" + User.Username, mana.ToString());
+                    }
+                    else
+                    {
+                        await SavesChat.SendMessage("неверный формат команды. нужно: set_manaForHeal Х");
+                    }
+                }
+            }
+
             if (lastMsg.Message.Contains("set_farm_spot"))
             {
                 var parsedString = lastMsg.Message.Split(' ');
@@ -416,6 +497,7 @@ namespace palochki
                     {
                         _xTarget = x;
                         _yTarget = y;
+                        _outOfFood = false;
                     }
                     else
                     {
@@ -435,6 +517,7 @@ namespace palochki
             {
                 var textToSend = "set_mob_damage Х Y где х-лвл моба и у-его урон\nтекущие = show_dmg_list\n";
                 textToSend += $"set_food_id Х\nтекущий = {_foodId}\n";
+                textToSend += $"set_manaForHeal Х\nтекущий = {_manaForHeal}\n";
                 textToSend += $"set_farm_spot Х где х-лвл моба\nтекущий = {_farmSpot}\n";
                 textToSend += "move_to Х Y = перейти по координатам";
                 await SavesChat.SendMessage(textToSend);
