@@ -350,6 +350,14 @@ namespace palochki
 
         private async Task DoStep(string direction)
         {
+            var msg = await HyperionBot.GetLastMessage();
+            if (msg.Message.Contains("UID:"))
+            {
+                await HyperionBot.SendMessage("🔙 Назад");
+                Thread.Sleep(1500);
+                await HyperionBot.SendMessage("👣 Перемещение");
+                Thread.Sleep(1500);
+            }
             await HyperionBot.SendMessage(direction);
             Thread.Sleep(1000);
             var reply = await HyperionBot.GetLastMessage();
