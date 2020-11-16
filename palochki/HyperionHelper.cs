@@ -30,8 +30,11 @@ namespace palochki
         private short _hp;
         private short _foodId;
         private bool _rested;
+        private int _lastComMesId;
 
         private static string[] _bannedStrings;
+        private short _zigCount;
+        private string _zigDir;
 
         public HyperionHelper(User user)
         {
@@ -51,6 +54,8 @@ namespace palochki
             _manaForHeal = 1000;
             _foodId = 101;
             _rested = false;
+            _zigCount = 0;
+            _lastComMesId = 0;
         }
 
         public async Task InitHelper(TelegramClient client)
@@ -83,6 +88,8 @@ namespace palochki
             _rested = state[4] == "True";
             _xTarget = short.Parse(state[5]);
             _yTarget = short.Parse(state[6]);
+            _zigCount = short.Parse(state[7]);
+            _zigDir = state[8];
 
             Console.WriteLine(
                 $"\nПользователь {User.Username} подключен к Гипериону\n");
@@ -93,8 +100,8 @@ namespace palochki
             await CheckControls();
             await SaveState();
             var lastMsg = await HyperionBot.GetLastMessage();
-            var lastMsgs = await HyperionBot.GetLastMessages(4);
 
+            var lastMsgs = await HyperionBot.GetLastMessages(4);
             if (lastMsgs.Any(m=>m.Message.Contains("У тебя есть две минуты на ответ")))
             {
                 var msg = lastMsgs.FirstOrDefault(m => m.Message.Contains("У тебя есть две минуты на ответ"));
@@ -102,7 +109,7 @@ namespace palochki
                 return;
             }
 
-            if (_disabled && _xTarget == 100)
+            if (_disabled && _xTarget == 100 && _zigCount == 0)
                 return;
 
             await UpdateCharStats();
@@ -111,7 +118,7 @@ namespace palochki
             {
                 if (!lastMsg.Message.Contains(bannedString)) continue;
 
-                var hist = (await HyperionBot.GetLastMessages(10)).OrderByDescending(m=>m.Date).ToArray();
+                var hist = (await HyperionBot.GetLastMessages(20)).OrderByDescending(m=>m.Date).ToArray();
                 foreach (var mes in hist)
                 {
                     var isBadToo = false;
@@ -156,10 +163,18 @@ namespace palochki
                     _food = 1;
                 else
                 {
-                    await HyperionBot.SendMessage($"/eat_{_foodId}");
-                    Thread.Sleep(2000);
-                    var mes = await HyperionBot.GetLastMessage();
-                    if (mes.Message.Contains("У тебя нет в наличии eды"))
+                    await HyperionBot.SendMessage("/food");
+                    Thread.Sleep(1500);
+                    var foodReply = (await HyperionBot.GetLastMessage()).Message;
+                    if (foodReply.Contains($"/eat_{_foodId}"))
+                    {
+                        await HyperionBot.SendMessage($"/eat_{_foodId}");
+                        Thread.Sleep(2000);
+                        var mes = await HyperionBot.GetLastMessage();
+                        if (mes.Message.Contains("У тебя нет в наличии eды"))
+                            _outOfFood = true;
+                    }
+                    else
                         _outOfFood = true;
                 }
             }
@@ -183,6 +198,56 @@ namespace palochki
 
                 await DoStep(CalculateDirection());
                 return; 
+            }
+
+            if (_zigCount > 0)
+            {
+                if (Math.Abs(_x) == Math.Abs(_y))
+                {
+                    _zigCount = 0;
+                    await SavesChat.SendMessage("дошли до угла");
+                    return;
+                }
+                _zigCount--;
+                switch (_zigDir)
+                {
+                    case "up":
+                        if (_x % 2 == 0 && _y % 2 == 0 || _x % 2 != 0 && _y % 2 != 0)
+                            await DoStep("⬆️ Север");
+                        else if (_x % 2 != 0 && _y % 2 == 0 && _y > 0 || _x % 2 == 0 && _y % 2 != 0 && _y < 0)
+                            await DoStep("⬅️ Запад");
+                        else 
+                            await DoStep("➡️ Восток");
+                        break;
+                    case "down":
+                        if (_x % 2 == 0 && _y % 2 == 0 || _x % 2 != 0 && _y % 2 != 0)
+                            await DoStep("⬇️ Юг");
+                        else if (_x % 2 != 0 && _y % 2 == 0 && _y > 0 || _x % 2 == 0 && _y % 2 != 0 && _y < 0)
+                            await DoStep("⬅️ Запад");
+                        else 
+                            await DoStep("➡️ Восток");
+                        break;
+                    case "left":
+                        if (_x % 2 == 0 && _y % 2 == 0 || _x % 2 != 0 && _y % 2 != 0)
+                            await DoStep("⬅️ Запад");
+                        else if (_x%2 == 0 && _y%2 != 0 && _x < 0 || _x%2 != 0 && _y%2 == 0 && _x > 0)
+                            await DoStep("⬆️ Север");
+                        else 
+                            await DoStep("⬇️ Юг");
+                        break;
+                    case "right":
+                        if (_x % 2 == 0 && _y % 2 == 0 || _x % 2 != 0 && _y % 2 != 0)
+                            await DoStep("➡️ Восток");
+                        else if (_x%2 == 0 && _y%2 != 0 && _x < 0 || _x%2 != 0 && _y%2 == 0 && _x > 0)
+                            await DoStep("⬆️ Север");
+                        else 
+                            await DoStep("⬇️ Юг");
+                        break;
+                }
+
+                if (_zigCount == 0)
+                    await SavesChat.SendMessage("Зигзаг окончен");
+                return;
             }
 
             if (!_farmInProcess && (_x != _y || _x > _farmSpot))
@@ -211,7 +276,7 @@ namespace palochki
 
         private async Task SaveState()
         {
-            var state = new string[7];
+            var state = new string[9];
             state[0] = _disabled.ToString();
             state[1] = _farmInProcess.ToString();
             state[2] = _timeToGoHome.ToString();
@@ -219,6 +284,8 @@ namespace palochki
             state[4] = _rested.ToString();
             state[5] = _xTarget.ToString();
             state[6] = _yTarget.ToString();
+            state[7] = _zigCount.ToString();
+            state[8] = _zigDir;
             await File.WriteAllLinesAsync("HypState_" + User.Username, state);
         }
 
@@ -299,8 +366,19 @@ namespace palochki
                 var currentMobDamage = short.Parse(_mobsDamage[_x - 11].Split('-')[1]);
                 if (_hp <= 1.5 * currentMobDamage)
                 {
-                    await HyperionBot.SendMessage("❤️ Исцеление");
-                    Thread.Sleep(2000);
+                    await HyperionBot.SendMessage("🏋️‍♂️ Профиль");
+                    Thread.Sleep(1500);
+                    var lastStatsMsg = (await HyperionBot.GetLastMessage()).Message;
+                    var mana = short.Parse(lastStatsMsg.Split("🔮: ")[1].Split('/')[0]!);
+                    if (mana >= _manaForHeal)
+                    {
+                        await HyperionBot.SendMessage("⚗️ Эффекты");
+                        Thread.Sleep(1500);
+                        await HyperionBot.SendMessage("❤️ Исцеление");
+                        Thread.Sleep(1500);
+                        await HyperionBot.SendMessage("🔙 Назад");
+                        Thread.Sleep(1500);
+                    }
                 }
             }
 
@@ -413,6 +491,29 @@ namespace palochki
                 }
             }
 
+            if (lastMsg.Message.Contains("start_zig_move"))
+            {
+                var parsedString = lastMsg.Message.Split(' ');
+                if (parsedString.Length != 3)
+                {
+                    await SavesChat.SendMessage("неверный формат команды. нужно: start_zig_move Х Y\nгде х-число ходов и у-[up|down|left|right]");
+                }
+                else
+                {
+                    var firstCheck = short.TryParse(parsedString[1],out var zigCount);
+                    if (firstCheck)
+                    {
+                        _zigCount = zigCount;
+                        _zigDir = parsedString[2];
+                        await SavesChat.SendMessage($"запущен зигзаг {zigCount} ходов в направлении {_zigDir}");
+                    }
+                    else
+                    {
+                        await SavesChat.SendMessage("неверный формат команды. нужно: start_zig_move Х Y\nгде х-число ходов и у-[up|down|left|right]");
+                    }
+                }
+            }
+
             if (lastMsg.Message.Contains("set_food_id"))
             {
                 var parsedString = lastMsg.Message.Split(' ');
@@ -485,6 +586,7 @@ namespace palochki
             if (lastMsg.Message.Contains("move_to"))
             {
                 var parsedString = lastMsg.Message.Split(' ');
+                var id = (await SavesChat.GetLastMessage()).Id;
                 if (parsedString.Length != 3)
                 {
                     await SavesChat.SendMessage("неверный формат команды. нужно: move_to Х Y");
@@ -497,7 +599,11 @@ namespace palochki
                     {
                         _xTarget = x;
                         _yTarget = y;
-                        _outOfFood = false;
+                        if (_lastComMesId != id)
+                        {
+                            _outOfFood = false;
+                            _lastComMesId = id;
+                        }
                     }
                     else
                     {
@@ -519,7 +625,8 @@ namespace palochki
                 textToSend += $"set_food_id Х\nтекущий = {_foodId}\n";
                 textToSend += $"set_manaForHeal Х\nтекущий = {_manaForHeal}\n";
                 textToSend += $"set_farm_spot Х где х-лвл моба\nтекущий = {_farmSpot}\n";
-                textToSend += "move_to Х Y = перейти по координатам";
+                textToSend += "move_to Х Y = перейти по координатам\n";
+                textToSend += "start_zig_move Х Y\nгде х-число ходов и у-[up|down|left|right]";
                 await SavesChat.SendMessage(textToSend);
                 await SavesChat.SendMessage("start_farm = включить фарм(нужно быть наа диагонали города(х=у)");
             }

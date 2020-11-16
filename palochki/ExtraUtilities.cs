@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using TeleSharp.TL;
 using TeleSharp.TL.Messages;
 using TLSharp.Core;
+using TLSharp.Core.Exceptions;
 
 namespace palochki
 {
@@ -16,14 +17,33 @@ namespace palochki
             var hash = await client.SendCodeRequestAsync(num);
             Console.WriteLine("\nВведите код из телеги\n");
             var code = Console.ReadLine(); //вводишь код, который пришел в телегу
-            await client.MakeAuthAsync(num, hash, code);
+            try
+            {
+                await client.MakeAuthAsync(num, hash, code);
+            }
+            catch (CloudPasswordNeededException ex)
+            {
+                Console.WriteLine("\nВведите облачный пароль\n");
+                var password_str = Console.ReadLine();
+                var password = await client.GetPasswordSetting();
+                await client.MakeAuthWithPasswordAsync(password, password_str);
+            }
         }
 
         public static async Task<string> GetChannelIdsByName(TelegramClient client, string name)
         {
             var chats = await client.GetUserDialogsAsync() as TLDialogsSlice;
-            if (chats?.Chats == null) return null;
-            foreach (var tlAbsChat in chats.Chats)
+            if (chats?.Chats != null)
+                foreach (var tlAbsChat in chats.Chats)
+                {
+                    var channel = tlAbsChat as TLChannel;
+                    if (channel == null || channel.Title != name) continue;
+                    var id = channel.Id;
+                    var hash = channel.AccessHash;
+                    return $"{id}\t{hash}";
+                }
+            var chats2 = (TLDialogs) await client.GetUserDialogsAsync();
+            foreach (var tlAbsChat in chats2.Chats)
             {
                 var channel = tlAbsChat as TLChannel;
                 if (channel == null || channel.Title != name) continue;
@@ -31,14 +51,23 @@ namespace palochki
                 var hash = channel.AccessHash;
                 return $"{id}\t{hash}";
             }
-
             return null;
         }
+
         public static async Task<string> GetBotIdsByName(TelegramClient client, string name)
         {
             var chats = await client.GetUserDialogsAsync() as TLDialogsSlice;
-            if (chats?.Users == null) return null;
-            foreach (var tlAbsUser in chats.Users)
+            if (chats?.Users != null)
+                foreach (var tlAbsUser in chats.Users)
+                {
+                    var user = tlAbsUser as TLUser;
+                    if (user == null || user.FirstName != name) continue;
+                    var id = user.Id;
+                    var hash = user.AccessHash;
+                    return $"{id}\t{hash}";
+                }
+            var chats2 = (TLDialogs) await client.GetUserDialogsAsync();
+            foreach (var tlAbsUser in chats2.Users)
             {
                 var user = tlAbsUser as TLUser;
                 if (user == null || user.FirstName != name) continue;

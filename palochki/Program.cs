@@ -87,8 +87,10 @@ namespace palochki
                     foreach (var helperHyp in helpersHyp)
                     {
                         await helperHyp.DoFarm();
+                        Console.WriteLine($"{DateTime.Now}: {helperHyp.User.Username}: цикл гипера завершен");
                     }
                     Thread.Sleep(4000);
+
                 }
             }
             catch (Exception e)

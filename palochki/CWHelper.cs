@@ -39,9 +39,9 @@ namespace palochki
             _skipHour = 25;
             ArenaFightStarted = DateTime.MinValue;
             _disabled = false;
-            _arenasDisabled = true;
-            _stamaDisabled = true;
-            _autoGdefDisabled = true;
+            _arenasDisabled = !User.EnableAllCW;
+            _stamaDisabled = !User.EnableAllCW;
+            _autoGdefDisabled = !User.EnableAllCW;
             _disabledRat = false;
         }
 
