@@ -199,7 +199,10 @@ namespace palochki
                     Thread.Sleep(2000);
                     var botReply = await CwBot.GetLastMessage();
                     if (!botReply.Message.Contains(Constants.StaminaNotFull))
+                    {
                         await UseStamina();
+                        Thread.Sleep(2000);
+                    }
 
                     await CwBot.SendMessage(Constants.GetReportCommand);
                     Thread.Sleep(1000);
@@ -226,12 +229,14 @@ namespace palochki
             Thread.Sleep(1000);
             var botReply = await CwBot.GetLastMessage();
             var buttonNumber = 2;
-            if (botReply.Message.Contains(Constants.ForestQuestForRangers))
+            if (botReply.Message.Contains(Constants.ForestQuestForRangers) || botReply.Message.Contains(Constants.ForestQuestForRangersN))
                 buttonNumber = 0;
-            if (botReply.Message.Contains(Constants.SwampQuestForRangers))
+            if (botReply.Message.Contains(Constants.SwampQuestForRangers) || botReply.Message.Contains(Constants.SwampQuestForRangersN))
                 buttonNumber = 1;
             await CwBot.PressButton(botReply, 0, buttonNumber);
             Console.WriteLine($"{DateTime.Now}: {User.Username}: единица стамины использована(переполнение)");
+            await File.AppendAllTextAsync(Constants.ActionLogFile,
+                $"{DateTime.Now}\n{User.Username} юзнул автослив стамы\n");
         }
 
         private async Task CatchCorovan(TLMessage lastBotMsg)
@@ -280,6 +285,8 @@ namespace palochki
             lastBotMessage = await CwBot.GetLastMessage();
             await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, lastBotMessage.Id);
             Console.WriteLine($"{DateTime.Now}: {User.Username}: помог с мобами");
+            await File.AppendAllTextAsync(Constants.ActionLogFile,
+                $"{DateTime.Now}\n{User.Username} помог с мобами\n");
             return replyMsg.Message;
         }
 
@@ -301,6 +308,8 @@ namespace palochki
                     {
                         await CwBot.SendMessage("/g_def");
                         Console.WriteLine($"{DateTime.Now}: {User.Username}: ушел в гидеф");
+                        await File.AppendAllTextAsync(Constants.ActionLogFile,
+                            $"{DateTime.Now}\n{User.Username} сходил в автогидеф\n");
                     }
 
                     _battleLock = true;
@@ -344,6 +353,8 @@ namespace palochki
             if (_arenasPlayed == 4)
                 _arenasPlayed = 5;
             Console.WriteLine($"{DateTime.Now}: {User.Username}: ушел на арену");
+            await File.AppendAllTextAsync(Constants.ActionLogFile,
+                $"{DateTime.Now}\n{User.Username} сходил на автоарену\n");
             ArenaFightStarted = time;
         }
 

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using TeleSharp.TL;
@@ -76,6 +77,29 @@ namespace palochki
                 return $"{id}\t{hash}";
             }
             return null;
+        }
+
+        public static async Task<string> GetBotIdsByUser(TelegramClient client, string userName)
+        {
+            var chats = await client.GetUserDialogsAsync() as TLDialogsSlice;
+            if (chats?.Users != null)
+                foreach (var tlAbsUser in chats.Users)
+                {
+                    var user = tlAbsUser as TLUser;
+                    if (user == null || user.Username != userName) continue;
+                    var id = user.Id;
+                    var hash = user.AccessHash;
+                    return $"{id}\t{hash}";
+                }
+
+            var chats2 = (TLDialogs) await client.GetUserDialogsAsync();
+            return (from tlAbsUser in chats2.Users
+                select tlAbsUser as TLUser
+                into user
+                where user != null && user.Username == userName
+                let id = user.Id
+                let hash = user.AccessHash
+                select $"{id}\t{hash}").FirstOrDefault();
         }
 
         public static byte ParseArenasPlayed(string input)

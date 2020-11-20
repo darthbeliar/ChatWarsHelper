@@ -3,6 +3,7 @@
     internal static class Constants
     {
         public const string BotName = "Chat Wars 3";
+        public const string ActionLogFile = "action_log_cw";
         public const string HyperionBotName = "Игра Hyperion [Beta]";
         public const string Korovan = "пытается ограбить";
         public const string Stama = "Выносливость восстановлена: ты полон сил";
@@ -24,8 +25,9 @@
         public const string AbsendResultsChat = "none";
         public const string ReportsHeader = "Твои результаты в бою";
         public const string ForestQuestForRangers = "🌲Лес 3мин. 🔥";
+        public const string ForestQuestForRangersN = "🌲Лес 5мин. 🔥";
         public const string SwampQuestForRangers = "🍄Болото 4мин. 🔥";
-        public const string MobHere = "Перед тобой стоит";
+        public const string SwampQuestForRangersN = "🍄Болото 6мин. 🔥";
         public const int CwBotId = 265204902;
     }
 }

@@ -11,6 +11,7 @@ namespace palochki
     {
         private static async Task Main()
         {
+            Console.WriteLine("бот стартанул тип");
             var helpersCw = await PrepareHelpersCw();
             var helpersHyp = await PrepareHelpersHyp(helpersCw);
             try
@@ -21,7 +22,6 @@ namespace palochki
             {
                 Console.WriteLine(e);
                 await MainLoop(helpersCw,helpersHyp);
-                throw;
             }
         }
 
@@ -46,7 +46,7 @@ namespace palochki
             {
                 Console.WriteLine(e);
                 Thread.Sleep(20000);
-                throw;
+                return await PrepareHelpersHyp(helpersCw);
             }
         }
 

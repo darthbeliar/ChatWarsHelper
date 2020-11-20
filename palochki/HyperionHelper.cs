@@ -13,6 +13,7 @@ namespace palochki
         public User User { get; }
         public TelegramClient Client { get; set; }
         public DialogHandler HyperionBot { get; set; }
+        public DialogHandler BeardManBot { get; set; }
         public DialogHandler SavesChat { get; set; }
         private List<string> _mobsDamage;
         private bool _disabled;
@@ -31,6 +32,7 @@ namespace palochki
         private short _foodId;
         private bool _rested;
         private int _lastComMesId;
+        private int _lastBeardManMesId;
 
         private static string[] _bannedStrings;
         private short _zigCount;
@@ -56,6 +58,7 @@ namespace palochki
             _rested = false;
             _zigCount = 0;
             _lastComMesId = 0;
+            _lastBeardManMesId = 0;
         }
 
         public async Task InitHelper(TelegramClient client)
@@ -68,15 +71,18 @@ namespace palochki
 
             _bannedStrings = await File.ReadAllLinesAsync("bannedStrings");
             Client = client;
-            var botIdsQuery = await ExtraUtilities.GetBotIdsByName(Client, Constants.HyperionBotName);
-            var botIds = botIdsQuery.Split('\t');
+            var botIds = (await ExtraUtilities.GetBotIdsByName(Client, Constants.HyperionBotName)).Split('\t');
             HyperionBot = new DialogHandler(Client, Convert.ToInt32(botIds[0]), Convert.ToInt64(botIds[1]));
 
-            var savesChatIdsQuery = await ExtraUtilities.GetBotIdsByName(Client, Client.Session.TLUser.FirstName);
-            var savesChatIds = savesChatIdsQuery.Split('\t');
+            var savesChatIds =
+                (await ExtraUtilities.GetBotIdsByName(Client, Client.Session.TLUser.FirstName)).Split('\t');
             SavesChat = new DialogHandler(Client, Convert.ToInt32(savesChatIds[0]), Convert.ToInt64(savesChatIds[1]));
 
-            _mobsDamage = (await File.ReadAllLinesAsync(Constants.HyperionSettingsFileName + '_' + User.Username)).ToList();
+            var beardManIds = (await ExtraUtilities.GetBotIdsByUser(Client, "your_bearded_bot")).Split('\t');
+            BeardManBot = new DialogHandler(Client, Convert.ToInt32(beardManIds[0]), Convert.ToInt64(beardManIds[1]));
+
+            _mobsDamage = (await File.ReadAllLinesAsync(Constants.HyperionSettingsFileName + '_' + User.Username))
+                .ToList();
             _farmSpot = short.Parse(await File.ReadAllTextAsync("farm_spot_" + User.Username));
             _foodId = short.Parse(await File.ReadAllTextAsync("food_id_" + User.Username));
             _manaForHeal = short.Parse(await File.ReadAllTextAsync("manaForHeal_" + User.Username));
@@ -100,6 +106,13 @@ namespace palochki
             await CheckControls();
             await SaveState();
             var lastMsg = await HyperionBot.GetLastMessage();
+
+            if (lastMsg.Message.Contains("↕️") && lastMsg.Message.Contains("◻️") && _lastBeardManMesId != lastMsg.Id)
+            {
+                await MessageUtilities.ForwardMessage(Client, HyperionBot.Peer, BeardManBot.Peer, lastMsg.Id);
+                _lastBeardManMesId = lastMsg.Id;
+            }
+
 
             var lastMsgs = await HyperionBot.GetLastMessages(4);
             if (lastMsgs.Any(m=>m.Message.Contains("У тебя есть две минуты на ответ")))
