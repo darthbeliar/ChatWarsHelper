@@ -29,5 +29,6 @@
         public const string SwampQuestForRangers = "🍄Болото 4мин. 🔥";
         public const string SwampQuestForRangersN = "🍄Болото 6мин. 🔥";
         public const int CwBotId = 265204902;
+        public static string[] Castles = new string[] {"🍁", "🍆", "☘️", "🦇", "🌹", "🖤"};
     }
 }

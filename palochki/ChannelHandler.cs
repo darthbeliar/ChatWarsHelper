@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System.Collections.Generic;
+using System.Threading.Tasks;
 using TeleSharp.TL;
 using TLSharp.Core;
 
@@ -18,6 +19,11 @@ namespace palochki
         public async Task<TLMessage> GetLastMessage()
         {
             return await MessageUtilities.GetLastMessage(_client, Peer,true);
+        }
+
+        public async Task<List<TLMessage>> GetLastMessages(int count)
+        {
+            return await MessageUtilities.GetLastMessages(_client, Peer,true,count);
         }
 
         public async Task<TLMessage> GetMessageById(int id)

@@ -18,6 +18,9 @@ namespace palochki
         private bool _arenasDisabled;
         private bool _stamaDisabled;
         private bool _autoGdefDisabled;
+        private string _pinTrigger;
+        private string _pin;
+        private int _lastBadRequestId;
         public User User { get; }
         public TelegramClient Client { get; }
         public DialogHandler CwBot { get; set; }
@@ -43,6 +46,9 @@ namespace palochki
             _stamaDisabled = !User.EnableAllCW;
             _autoGdefDisabled = !User.EnableAllCW;
             _disabledRat = false;
+            _pinTrigger = user.Username + " пин";
+            _pin = "";
+            _lastBadRequestId = 0;
         }
 
         public async Task InitHelper()
@@ -82,19 +88,26 @@ namespace palochki
         public async Task PerformStandardRoutine()
         {
             await CheckControls();
-            if(_disabled || User.Username == "алух" && _disabledRat)
+            if (_disabled || User.Username == "алух" && _disabledRat)
                 return;
             var lastBotMsg = await CwBot.GetLastMessage();
             var last3BotMsgs = await CwBot.GetLastMessages(3);
-            var msgToCheck = await GuildChat.GetLastMessage();
+            var msgsToCheck = await GuildChat.GetLastMessages(10);
 
-            if (string.Compare(msgToCheck?.Message, User.MobsTrigger, StringComparison.InvariantCultureIgnoreCase) ==
-                0)
+            if (msgsToCheck.Any(msgToCheck =>
+                string.Compare(msgToCheck?.Message, User.MobsTrigger, StringComparison.InvariantCultureIgnoreCase) ==
+                0))
             {
+                var msgToCheck = msgsToCheck.First(message =>
+                    string.Compare(message?.Message, User.MobsTrigger,
+                        StringComparison.InvariantCultureIgnoreCase) == 0);
                 var mob = await HelpWithMobs(msgToCheck);
                 if (!string.IsNullOrEmpty(mob))
                     _lastFoundFight = mob;
             }
+
+            if (msgsToCheck.Any(m => m.Message.Contains(_pinTrigger)))
+                await TrySetPin(msgsToCheck.FirstOrDefault(m => m.Message.Contains(_pinTrigger)));
 
             await CheckForStaminaAfterBattle();
             await CheckForBattle();
@@ -112,15 +125,63 @@ namespace palochki
                     await MessageUtilities.SendMessage(Client, CwBot.Peer, Constants.Village);
 
                 if (last3BotMsgs.Any(x =>
-                    x.Message.Contains(Constants.HasMobs) && x.Message != _lastFoundFight && x.FromId == Constants.CwBotId))
+                    x.Message.Contains(Constants.HasMobs) && x.Message != _lastFoundFight &&
+                    x.FromId == Constants.CwBotId))
                 {
-                    var fightMessage = last3BotMsgs.First(x => x.Message.Contains(Constants.HasMobs) && x.FromId == Constants.CwBotId);
+                    var fightMessage = last3BotMsgs.First(x =>
+                        x.Message.Contains(Constants.HasMobs) && x.FromId == Constants.CwBotId);
                     _lastFoundFight = fightMessage.Message;
                     await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer,
                         fightMessage.Id);
                 }
             }
+
             Console.WriteLine($"{DateTime.Now}: {User.Username}: цикл проверок завершен");
+        }
+
+        private async Task TrySetPin(TLMessage msg)
+        {
+            if(msg.Id == _lastBadRequestId)
+                return;
+            var parsed = msg.Message.Split(' ');
+            if (parsed.Length != 3)
+            {
+                await GuildChat.SendMessage($"Неверный формат команды. Нужно {User.Username} пин цель");
+                _lastBadRequestId = msg.Id;
+                return;
+            }
+            
+            var pin = msg.Message.Split(' ')[2];
+            
+            if (Constants.Castles.Contains(pin))
+            {
+                await CwBot.SendMessage(Constants.HeroCommand);
+                Thread.Sleep(1500);
+                var heroReply = await CwBot.GetLastMessage();
+                var atkCommandMarkup = heroReply.ReplyMarkup as TLReplyKeyboardMarkup;
+                var atkCommand = atkCommandMarkup.Rows[0].Buttons[0] as TLKeyboardButton;
+                await CwBot.SendMessage(atkCommand.Text);
+                Thread.Sleep(2000);
+                var replyToAttack = await CwBot.GetLastMessage();
+                if (replyToAttack.Message != "Смелый вояка! Выбирай врага")
+                {
+                    await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, replyToAttack.Id);
+                    _lastBadRequestId = replyToAttack.Id;
+                    return;
+                }
+            }
+            else if (!pin.Contains("_atk") && !pin.Contains("_def") && !pin.Contains("🛡Защита"))
+            {
+                await GuildChat.SendMessage("не распознал пин");
+                _lastBadRequestId = msg.Id;
+                return;
+            }
+
+            await CwBot.SendMessage(pin);
+            Thread.Sleep(1500);
+            var reply = await CwBot.GetLastMessage();
+            await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, reply.Id);
+            _lastBadRequestId = msg.Id;
         }
 
         private async Task CheckControls()
@@ -267,6 +328,10 @@ namespace palochki
             }
 
             var replyMsg = await GuildChat.GetMessageById(msgToCheck.ReplyToMsgId.Value);
+
+            if (replyMsg.Message == _lastFoundFight)
+                return "";
+
             if (!replyMsg.Message.Contains(Constants.HasMobs))
             {
                 await GuildChat.SendMessage("Нет мобов в реплае");
