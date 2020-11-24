@@ -146,7 +146,7 @@ namespace palochki
             var parsed = msg.Message.Split(' ');
             if (parsed.Length != 3)
             {
-                await GuildChat.SendMessage($"Неверный формат команды. Нужно {User.Username} пин цель");
+                await GuildChat.SendMessage($"Неверный формат команды. Должна состоять из 3 слов через пробел(имя пин цель)");
                 _lastBadRequestId = msg.Id;
                 return;
             }
