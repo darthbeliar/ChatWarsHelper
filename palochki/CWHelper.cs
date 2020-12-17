@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -18,8 +19,10 @@ namespace palochki
         private bool _arenasDisabled;
         private bool _stamaDisabled;
         private bool _autoGdefDisabled;
-        private string _pinTrigger;
+        private bool _potionForChampDisabled;
+        private readonly string _pinTrigger;
         private string _pin;
+        private List<int> _fightTriggerIds;
         private int _lastBadRequestId;
         public User User { get; }
         public TelegramClient Client { get; }
@@ -46,9 +49,11 @@ namespace palochki
             _stamaDisabled = !User.EnableAllCW;
             _autoGdefDisabled = !User.EnableAllCW;
             _disabledRat = false;
+            _potionForChampDisabled = !User.EnableAllCW;
             _pinTrigger = user.Username + " пин";
             _pin = "";
             _lastBadRequestId = 0;
+            _fightTriggerIds = new List<int>();
         }
 
         public async Task InitHelper()
@@ -96,17 +101,16 @@ namespace palochki
 
             if (msgsToCheck.Any(msgToCheck =>
                 string.Compare(msgToCheck?.Message, User.MobsTrigger, StringComparison.InvariantCultureIgnoreCase) ==
-                0))
+                0 && !_fightTriggerIds.Contains(msgToCheck.Id)))
             {
                 var msgToCheck = msgsToCheck.First(message =>
                     string.Compare(message?.Message, User.MobsTrigger,
-                        StringComparison.InvariantCultureIgnoreCase) == 0);
-                var mob = await HelpWithMobs(msgToCheck);
-                if (!string.IsNullOrEmpty(mob))
-                    _lastFoundFight = mob;
+                        StringComparison.InvariantCultureIgnoreCase) == 0 && !_fightTriggerIds.Contains(message.Id));
+                await HelpWithMobs(msgToCheck);
+                _fightTriggerIds.Add(msgToCheck.Id);
             }
 
-            if (msgsToCheck.Any(m => m.Message.Contains(_pinTrigger)))
+            if (msgsToCheck.Any(m => m != null && m.Message.Contains(_pinTrigger)))
                 await TrySetPin(msgsToCheck.FirstOrDefault(m => m.Message.Contains(_pinTrigger)));
 
             await CheckForStaminaAfterBattle();
@@ -192,11 +196,11 @@ namespace palochki
             {
                 case "help":
                     await SavesChat.SendMessage(
-                        "stop bot = полностью выключить бота\nstart bot = полностью включить бота\nenable arenas = включить автоарены\ndisable arenas = выключить автоарены\nenable stama = включить автослив стамины\ndisable stama = выключить автослив стамины\nenable def = включить автогидеф\ndisable def = выключить автогидеф\nbot status = состояние функций бота");
+                        "stop bot = полностью выключить бота\nstart bot = полностью включить бота\nenable arenas = включить автоарены\ndisable arenas = выключить автоарены\nenable stama = включить автослив стамины\ndisable stama = выключить автослив стамины\nenable def = включить автогидеф\ndisable def = выключить автогидеф\nbot status = состояние функций бота\ndisable potions = выключить автозелья на чемпа\nenable potions = включить автозелья на чемпа");
                     break;
                 case "bot status":
                     await SavesChat.SendMessage(
-                        $"бот = {(_disabled?"выключен":"включен")}\nарены = {(_arenasDisabled?"выключены":"включены")}\nавтослив стамины = {(_stamaDisabled?"выключен":"включен")}\nавтогидеф = {(_autoGdefDisabled?"выключен":"включен")}");
+                        $"бот = {(_disabled?"выключен":"включен")}\nарены = {(_arenasDisabled?"выключены":"включены")}\nавтослив стамины = {(_stamaDisabled?"выключен":"включен")}\nавтогидеф = {(_autoGdefDisabled?"выключен":"включен")}\nзелья на чемпа = {(_potionForChampDisabled?"выключены":"включены")}");
                     break;
                 case "stop bot":
                     await SavesChat.SendMessage("Бот остановлен");
@@ -220,6 +224,9 @@ namespace palochki
                     await SavesChat.SendMessage("Автослив стамины включен");
                     _stamaDisabled = false;
                     break;
+                case "enable potions":
+                    _potionForChampDisabled = false;
+                    break;
                 case "disable stama":
                     await SavesChat.SendMessage("Автослив стамины выключен");
                     _stamaDisabled = true;
@@ -234,13 +241,16 @@ namespace palochki
                     break;
                 case "disable rat":
                     _disabledRat = true;
-
+                    break;
+                case "disable potions":
+                    _potionForChampDisabled = true;
                     break;
                 case "enable all":
                     await SavesChat.SendMessage("Все функции активированы");
                     _autoGdefDisabled = false;
                     _stamaDisabled = false;
                     _arenasDisabled = false;
+                    _potionForChampDisabled = false;
                     break;
             }
         }
@@ -319,40 +329,68 @@ namespace palochki
             Console.WriteLine($"{DateTime.Now}: {User.Username}: пойман корован");
         }
 
-        private async Task<string> HelpWithMobs(TLMessage msgToCheck)
+        private async Task HelpWithMobs(TLMessage msgToCheck)
         {
             if (msgToCheck.ReplyToMsgId == null)
             {
                 await GuildChat.SendMessage("Нет реплая на моба");
-                return "";
+                return;
             }
 
             var replyMsg = await GuildChat.GetMessageById(msgToCheck.ReplyToMsgId.Value);
-
-            if (replyMsg.Message == _lastFoundFight)
-                return "";
-
+            
             if (!replyMsg.Message.Contains(Constants.HasMobs))
             {
                 await GuildChat.SendMessage("Нет мобов в реплае");
-                return "";
+                return;
             }
 
             var lastBotMessage = await CwBot.GetLastMessage();
             if (lastBotMessage.Message == Constants.InFight)
             {
                 await GuildChat.SendMessage("уже дерусь");
-                return replyMsg.Message;
+                return;
             }
 
             await CwBot.SendMessage(replyMsg.Message);
             Thread.Sleep(1000);
             lastBotMessage = await CwBot.GetLastMessage();
             await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, lastBotMessage.Id);
+
+            if (replyMsg.Message.Contains("Forbidden Champion") && lastBotMessage.Message.Contains("собрался напасть") && !_potionForChampDisabled)
+                await DrinkPotions();
+
             Console.WriteLine($"{DateTime.Now}: {User.Username}: помог с мобами");
             await File.AppendAllTextAsync(Constants.ActionLogFile,
                 $"{DateTime.Now}\n{User.Username} помог с мобами\n");
-            return replyMsg.Message;
+        }
+
+        private async Task DrinkPotions()
+        {
+            await CwBot.SendMessage("/g_withdraw p01 1 p02 1 p03 1 p04 1 p05 1 p06 1");
+            Thread.Sleep(1000);
+            var botReply = await CwBot.GetLastMessage();
+            if (!botReply.Message.Contains("Withdrawing:"))
+            {
+                await GuildChat.SendMessage("Нет зелий в стоке или прав на их получение");
+                return;
+            }
+
+            await CwBot.SendMessage(botReply.Message);
+            Thread.Sleep(1500);
+            await CwBot.SendMessage("/use_p01");
+            Thread.Sleep(1500);
+            await CwBot.SendMessage("/use_p02");
+            Thread.Sleep(1500);
+            await CwBot.SendMessage("/use_p03");
+            Thread.Sleep(1500);
+            await CwBot.SendMessage("/use_p04");
+            Thread.Sleep(1500);
+            await CwBot.SendMessage("/use_p05");
+            Thread.Sleep(1500);
+            await CwBot.SendMessage("/use_p06");
+            Thread.Sleep(1500);
+            await GuildChat.SendMessage("выпил зелья");
         }
 
         private async Task CheckForBattle()
