@@ -305,18 +305,9 @@ namespace palochki
             {
                 if (!_afterBattleLock)
                 {
-                    await CwBot.SendMessage(Constants.HeroCommand);
-                    Thread.Sleep(2000);
-                    var botReply = await CwBot.GetLastMessage();
-                    if (!botReply.Message.Contains(Constants.StaminaNotFull))
-                    {
-                        await UseStamina();
-                        Thread.Sleep(2000);
-                    }
-
                     await CwBot.SendMessage(Constants.GetReportCommand);
                     Thread.Sleep(1000);
-                    botReply = await CwBot.GetLastMessage();
+                    var botReply = await CwBot.GetLastMessage();
                     if (botReply.Message.Contains(Constants.ReportsHeader))
                         await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, botReply.Id);
 
@@ -324,6 +315,7 @@ namespace palochki
 
                     if (User.ResultsChatName != Constants.AbsendResultsChat)
                     {
+                        Thread.Sleep(2000);
                         await CwBot.SendMessage("/g_stock_res");
                         Thread.Sleep(2000);
                         botReply = await CwBot.GetLastMessage();
@@ -352,6 +344,15 @@ namespace palochki
                                 PreBattleCounts[i] = 0;
                             }
                         }
+                    }
+
+                    await CwBot.SendMessage(Constants.HeroCommand);
+                    Thread.Sleep(2000); 
+                    botReply = await CwBot.GetLastMessage();
+                    if (!botReply.Message.Contains(Constants.StaminaNotFull))
+                    {
+                        await UseStamina();
+                        Thread.Sleep(2000);
                     }
 
                     _afterBattleLock = true;
@@ -488,6 +489,7 @@ namespace palochki
 
                     if (User.ResultsChatName != Constants.AbsendResultsChat)
                     {
+                        Thread.Sleep(2000);
                         await CwBot.SendMessage("/g_stock_res");
                         Thread.Sleep(2000);
                         botReply = await CwBot.GetLastMessage();
