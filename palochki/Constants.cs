@@ -1,4 +1,6 @@
-﻿namespace palochki
+﻿using System.Collections.Generic;
+
+namespace palochki
 {
     internal static class Constants
     {
@@ -29,6 +31,7 @@
         public const string SwampQuestForRangers = "🍄Болото 4мин. 🔥";
         public const string SwampQuestForRangersN = "🍄Болото 6мин. 🔥";
         public const int CwBotId = 265204902;
-        public static string[] Castles = {"🍁", "🍆", "☘️", "🦇", "🌹", "🖤"};
+        public static string[] Castles = {"🍁", "🍆", "☘️", "🦇", "🌹", "🖤", "🐢"};
+        public static string[] CwItems = {"","Thread","Stick","Pelt","Bone","Coal","Charcoal","Powder","Iron ore","Cloth","Silver ore","Bauxite","Cord","Magic stone","Wooden shaft","Sapphire","Solvent","Ruby","Hardener","Steel","Leather","Bone powder","String","Coke","Purified powder","Silver alloy","неведомая хуйня","Steel mold","Silver mold","Blacksmith frame","Artisan frame","Rope","Silver frame","Metal plate","Metallic fiber","Crafted leather","Quality cloth","Blacksmith mold","Artisan mold"} ;
     }
 }

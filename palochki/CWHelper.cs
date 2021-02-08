@@ -28,11 +28,14 @@ namespace palochki
         public TelegramClient Client { get; }
         public DialogHandler CwBot { get; set; }
         public DialogHandler SavesChat { get; set; }
+        public DialogHandler OrdersChat { get; set; }
         public ChannelHandler GuildChat { get; set; }
         public ChannelHandler CorovansLogChat { get; set; }
         private string _lastFoundFight;
         private bool _disabledRat;
         public DateTime ArenaFightStarted { get; private set; }
+        public List<int> PreBattleCounts = new List<int>(39);
+        public List<int> AfterBattleCounts = new List<int>(39);
 
         public CwHelper(User user)
         {
@@ -77,6 +80,12 @@ namespace palochki
             var savesChatIds = savesChatIdsQuery.Split('\t');
             SavesChat = new DialogHandler(Client, Convert.ToInt32(savesChatIds[0]), Convert.ToInt64(savesChatIds[1]));
 
+            if (User.Username == "белиар")
+            {
+                var orderChatIds = (await ExtraUtilities.GetBotIdsByName(Client, "Дaниeль")).Split('\t');
+                OrdersChat = new DialogHandler(Client, Convert.ToInt32(orderChatIds[0]), Convert.ToInt64(orderChatIds[1]));
+            }
+
             await SavesChat.SendMessage("Бот перезапущен");
 
             if (User.ResultsChatName != Constants.AbsendResultsChat)
@@ -84,6 +93,12 @@ namespace palochki
                 var resChatIdsQuery = await ExtraUtilities.GetChannelIdsByName(Client, User.ResultsChatName);
                 var resChatIds = resChatIdsQuery.Split('\t');
                 CorovansLogChat = new ChannelHandler(Client, Convert.ToInt32(resChatIds[0]), Convert.ToInt64(resChatIds[1]));
+            }
+
+            for (var i = 0; i <= 38; i++)
+            {
+                AfterBattleCounts.Add(0);
+                PreBattleCounts.Add(0);
             }
 
             Console.WriteLine(
@@ -140,17 +155,32 @@ namespace palochki
                 }
             }
 
+            if (User.Username == "белиар")
+                await CheckOrders();
+
             Console.WriteLine($"{DateTime.Now}: {User.Username}: цикл проверок завершен");
         }
 
-        private async Task TrySetPin(TLMessage msg)
+        private async Task CheckOrders()
+        {
+            var lastMes = await OrdersChat.GetLastMessage();
+            if (lastMes.Message.Contains(_pinTrigger))
+                await TrySetPin(lastMes,true);
+        }
+
+        private async Task TrySetPin(TLMessage msg,bool personalOrder = false)
         {
             if(msg.Id == _lastBadRequestId)
                 return;
             var parsed = msg.Message.Split(' ');
+
             if (parsed.Length != 3)
             {
-                await GuildChat.SendMessage($"Неверный формат команды. Должна состоять из 3 слов через пробел(имя пин цель)");
+                if (personalOrder)
+                    await OrdersChat.SendMessage(
+                        "Неверный формат команды. Должна состоять из 3 слов через пробел(имя пин цель)");
+                else 
+                    await GuildChat.SendMessage("Неверный формат команды. Должна состоять из 3 слов через пробел(имя пин цель)");
                 _lastBadRequestId = msg.Id;
                 return;
             }
@@ -169,14 +199,20 @@ namespace palochki
                 var replyToAttack = await CwBot.GetLastMessage();
                 if (replyToAttack.Message != "Смелый вояка! Выбирай врага")
                 {
-                    await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, replyToAttack.Id);
+                    if (personalOrder)
+                        await MessageUtilities.ForwardMessage(Client, CwBot.Peer, OrdersChat.Peer, replyToAttack.Id);
+                    else
+                        await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, replyToAttack.Id);
                     _lastBadRequestId = replyToAttack.Id;
                     return;
                 }
             }
             else if (!pin.Contains("_atk") && !pin.Contains("_def") && !pin.Contains("🛡Защита"))
             {
-                await GuildChat.SendMessage("не распознал пин");
+                if(personalOrder)
+                    await OrdersChat.SendMessage("не распознал пин");
+                else
+                    await GuildChat.SendMessage("не распознал пин");
                 _lastBadRequestId = msg.Id;
                 return;
             }
@@ -184,7 +220,10 @@ namespace palochki
             await CwBot.SendMessage(pin);
             Thread.Sleep(1500);
             var reply = await CwBot.GetLastMessage();
-            await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, reply.Id);
+            if(personalOrder)
+                await MessageUtilities.ForwardMessage(Client, CwBot.Peer, OrdersChat.Peer, reply.Id);
+            else
+                await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, reply.Id);
             _lastBadRequestId = msg.Id;
         }
 
@@ -282,6 +321,38 @@ namespace palochki
                         await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, botReply.Id);
 
                     Console.WriteLine($"{DateTime.Now}: {User.Username}: репорт отправлен");
+
+                    if (User.ResultsChatName != Constants.AbsendResultsChat)
+                    {
+                        await CwBot.SendMessage("/g_stock_res");
+                        Thread.Sleep(2000);
+                        botReply = await CwBot.GetLastMessage();
+                        if (botReply.Message.Contains("Guild Warehouse"))
+                        {
+                            await MessageUtilities.ForwardMessage(Client, CwBot.Peer, CorovansLogChat.Peer,
+                                botReply.Id);
+                            AfterBattleCounts = ParseStock(botReply.Message);
+                        }
+
+                        if (AfterBattleCounts.Any(i => i != 0) && PreBattleCounts.Any(j => j != 0))
+                        {
+                            var msg = "Изменения в стоке\n";
+                            for (var i = 1; i <= 38; i++)
+                            {
+                                var change = AfterBattleCounts[i] - PreBattleCounts[i];
+                                if (change == 0) continue;
+                                var sign = change > 0 ? "+" : "-";
+                                msg += $"{Constants.CwItems[i]} {sign}{change}\n";
+                            }
+
+                            await CorovansLogChat.SendMessage(msg);
+                            for (var i = 0; i <= 38; i++)
+                            {
+                                AfterBattleCounts[i] = 0;
+                                PreBattleCounts[i] = 0;
+                            }
+                        }
+                    }
 
                     _afterBattleLock = true;
                 }
@@ -415,6 +486,19 @@ namespace palochki
                             $"{DateTime.Now}\n{User.Username} сходил в автогидеф\n");
                     }
 
+                    if (User.ResultsChatName != Constants.AbsendResultsChat)
+                    {
+                        await CwBot.SendMessage("/g_stock_res");
+                        Thread.Sleep(2000);
+                        botReply = await CwBot.GetLastMessage();
+                        if (botReply.Message.Contains("Guild Warehouse"))
+                        {
+                            await MessageUtilities.ForwardMessage(Client, CwBot.Peer, CorovansLogChat.Peer,
+                                botReply.Id);
+                            PreBattleCounts = ParseStock(botReply.Message);
+                        }
+                    }
+
                     _battleLock = true;
                 }
             }
@@ -422,6 +506,24 @@ namespace palochki
             {
                 _battleLock = false;
             }
+        }
+
+        private static List<int> ParseStock(string botReplyMessage)
+        {
+            var result = new List<int>(39);
+            for (var i = 0; i < 39; i++)
+                result.Add(0);
+            var strings = botReplyMessage.Split('\n');
+            foreach (var s in strings)
+            {
+                if(s.Contains("Guild Warehouse"))
+                    continue;
+                var id = int.Parse(s.Split(' ')[0]);
+                var count = int.Parse(s.Split("x ")[1]);
+                result[id] = count;
+            }
+
+            return result;
         }
 
         private async Task ArenasCheck()
