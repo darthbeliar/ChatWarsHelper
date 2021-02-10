@@ -16,6 +16,7 @@ namespace palochki
         public const string HeroCommand = "🏅Герой";
         public const string QuestsCommand = "🗺Квесты";
         public const string RestedState = "🛌Отдых";
+        public const string SmithState = "⚒В лавке";
         public const string FastFightCommand = "▶️Быстрый бой";
         public const string StaminaNotFull = "⏰";
         public const string GetReportCommand = "/report";

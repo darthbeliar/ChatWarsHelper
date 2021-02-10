@@ -329,15 +329,18 @@ namespace palochki
                         if (AfterBattleCounts.Any(i => i != 0) && PreBattleCounts.Any(j => j != 0))
                         {
                             var msg = "Изменения в стоке\n";
+                            var noChanges = true;
                             for (var i = 1; i <= 38; i++)
                             {
                                 var change = AfterBattleCounts[i] - PreBattleCounts[i];
                                 if (change == 0) continue;
+                                noChanges = false;
                                 var sign = change > 0 ? "+" : "-";
                                 msg += $"{Constants.CwItems[i]} {sign}{change}\n";
                             }
 
-                            await CorovansLogChat.SendMessage(msg);
+                            if(!noChanges)
+                                await CorovansLogChat.SendMessage(msg);
                             for (var i = 0; i <= 38; i++)
                             {
                                 AfterBattleCounts[i] = 0;
@@ -484,7 +487,7 @@ namespace palochki
                     await CwBot.SendMessage(Constants.HeroCommand);
                     Thread.Sleep(2000);
                     var botReply = await CwBot.GetLastMessage();
-                    if (botReply.Message.Contains(Constants.RestedState))
+                    if (botReply.Message.Contains(Constants.RestedState) || botReply.Message.Contains(Constants.SmithState))
                     {
                         await CwBot.SendMessage("/g_def");
                         Console.WriteLine($"{DateTime.Now}: {User.Username}: ушел в гидеф");
