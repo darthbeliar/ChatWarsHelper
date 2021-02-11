@@ -141,6 +141,7 @@ namespace palochki
                     var time = DateTime.Now;
                     if (afterBattleHours.Contains(time.Hour) && time.Minute < afterBattleMinute)
                         return;
+                    await UseStamina();
                 }
 
                 if (lastBotMsg.Message.Contains(Constants.Korovan))
