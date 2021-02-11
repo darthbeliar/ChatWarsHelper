@@ -135,7 +135,13 @@ namespace palochki
             if (lastBotMsg != null)
             {
                 if (lastBotMsg.Message.Contains(Constants.Stama))
-                    await UseStamina();
+                {
+                    var afterBattleHours = new[] {1, 9, 17};
+                    const int afterBattleMinute = 8;
+                    var time = DateTime.Now;
+                    if (afterBattleHours.Contains(time.Hour) && time.Minute < afterBattleMinute)
+                        return;
+                }
 
                 if (lastBotMsg.Message.Contains(Constants.Korovan))
                     await CatchCorovan(lastBotMsg);
@@ -370,11 +376,6 @@ namespace palochki
         private async Task UseStamina()
         {
             if(_stamaDisabled)
-                return;
-            var afterBattleHours = new[] {1, 9, 17};
-            const int afterBattleMinute = 9;
-            var time = DateTime.Now;
-            if (afterBattleHours.Contains(time.Hour) && time.Minute < afterBattleMinute)
                 return;
             await CwBot.SendMessage(Constants.QuestsCommand);
             Thread.Sleep(1000);
