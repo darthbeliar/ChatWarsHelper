@@ -20,6 +20,7 @@ namespace palochki
         private bool _stamaDisabled;
         private bool _autoGdefDisabled;
         private bool _potionForChampDisabled;
+        private bool _morningQuest;
         private readonly string _pinTrigger;
         private string _pin;
         private List<int> _fightTriggerIds;
@@ -57,6 +58,7 @@ namespace palochki
             _pin = "";
             _lastBadRequestId = 0;
             _fightTriggerIds = new List<int>();
+            _morningQuest = false;
         }
 
         public async Task InitHelper()
@@ -131,15 +133,15 @@ namespace palochki
             await CheckForStaminaAfterBattle();
             await CheckForBattle();
             await ArenasCheck();
+            await MorningQuest();
 
             if (lastBotMsg != null)
             {
                 if (lastBotMsg.Message.Contains(Constants.Stama))
                 {
-                    var afterBattleHours = new[] {1, 9, 17};
                     const int afterBattleMinute = 8;
                     var time = DateTime.Now;
-                    if (afterBattleHours.Contains(time.Hour) && time.Minute < afterBattleMinute)
+                    if (Constants.AfterBattleHours.Contains(time.Hour) && time.Minute < afterBattleMinute)
                         return;
                     await UseStamina();
                 }
@@ -165,14 +167,105 @@ namespace palochki
             if (User.Username == "белиар")
                 await CheckOrders();
 
+            if (User.Username == "шпендаль")
+                await CheckBotOrder();
+
             Console.WriteLine($"{DateTime.Now}: {User.Username}: цикл проверок завершен");
+        }
+
+        private async Task MorningQuest()
+        {
+            if (_morningQuest || _stamaDisabled)
+                return;
+            var time = DateTime.Now;
+            if (time.Hour == 8 && time.Minute > 10)
+            {
+                await UseStamina();
+                _morningQuest = true;
+            }
+        }
+
+        private async Task CheckBotOrder()
+        {
+            var msgToCheck = await GuildChat.GetLastMessage();
+            if (msgToCheck.Message.ToLower() != "в бота")
+                return;
+            if (msgToCheck.ReplyToMsgId == null)
+            {
+                await GuildChat.SendMessage("нужен реплай");
+                return;
+            }
+
+            var replyMsg = await GuildChat.GetMessageById(msgToCheck.ReplyToMsgId.Value);
+            await CwBot.SendMessage(replyMsg.Message);
+            Thread.Sleep(2000);
+            var lastBotMessage = await CwBot.GetLastMessage();
+            await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, lastBotMessage.Id);
         }
 
         private async Task CheckOrders()
         {
             var lastMes = await OrdersChat.GetLastMessage();
-            if (lastMes.Message.Contains(_pinTrigger))
+            if (lastMes.Message.ToLower().Contains(_pinTrigger))
                 await TrySetPin(lastMes,true);
+            if (lastMes.Message.ToLower().Contains("выпей рагу"))
+                await TryDrinkRage();
+            if (lastMes.Message.ToLower().Contains("бери"))
+                await TryTakeItems(lastMes);
+        }
+
+        private async Task TryTakeItems(TLMessage msgToCheck)
+        {
+            if (msgToCheck.ReplyToMsgId == null)
+            {
+                await OrdersChat.SendMessage("Нет реплая на сообщение");
+                return;
+            }
+
+            var replyMsg = await GuildChat.GetMessageById(msgToCheck.ReplyToMsgId.Value);
+            if (!replyMsg.Message.Contains("/g_receive"))
+            {
+                await OrdersChat.SendMessage("Нет ссылки на итемы");
+                return;
+            }
+
+            await CwBot.SendMessage(replyMsg.Message);
+            Thread.Sleep(1500);
+            var lastBotMessage = await CwBot.GetLastMessage();
+            await MessageUtilities.ForwardMessage(Client, CwBot.Peer, OrdersChat.Peer, lastBotMessage.Id);
+        }
+
+        private async Task TryDrinkRage()
+        {
+            await CwBot.SendMessage("/misc rage");
+            Thread.Sleep(1500);
+            var reply = await CwBot.GetLastMessage();
+            await MessageUtilities.ForwardMessage(Client, CwBot.Peer, OrdersChat.Peer, reply.Id);
+            if (Constants.RagePots.Any(p => !reply.Message.Contains(p)))
+            {
+                await OrdersChat.SendMessage("Какого-то зелья не хватает");
+                return;
+            }
+            var time = DateTime.Now;
+            if (Constants.BattleHours.Contains(time.Hour) && time.Minute > 30)
+            {
+                await CwBot.SendMessage("/use_p01");
+                Thread.Sleep(1500);
+                reply = await CwBot.GetLastMessage();
+                await MessageUtilities.ForwardMessage(Client, CwBot.Peer, OrdersChat.Peer, reply.Id);
+                await CwBot.SendMessage("/use_p02");
+                Thread.Sleep(1500);
+                reply = await CwBot.GetLastMessage();
+                await MessageUtilities.ForwardMessage(Client, CwBot.Peer, OrdersChat.Peer, reply.Id);
+                await CwBot.SendMessage("/use_p03");
+                Thread.Sleep(1500);
+                reply = await CwBot.GetLastMessage();
+                await MessageUtilities.ForwardMessage(Client, CwBot.Peer, OrdersChat.Peer, reply.Id);
+            }
+            else
+            {
+                await OrdersChat.SendMessage("До битвы больше чем полчаса");
+            }
         }
 
         private async Task TrySetPin(TLMessage msg,bool personalOrder = false)
@@ -305,10 +398,9 @@ namespace palochki
         {
             if (_stamaDisabled)
                 return;
-            var afterBattleHours = new[] {1, 9, 17};
             const int afterBattleMinute = 8;
             var time = DateTime.Now;
-            if (afterBattleHours.Contains(time.Hour) && time.Minute == afterBattleMinute)
+            if (Constants.AfterBattleHours.Contains(time.Hour) && time.Minute == afterBattleMinute)
             {
                 if (!_afterBattleLock)
                 {
@@ -479,10 +571,9 @@ namespace palochki
         {
             if(_autoGdefDisabled)
                 return;
-            var battleHours = new[] {0, 8, 16};
             const int battleMinute = 59;
             var time = DateTime.Now;
-            if (battleHours.Contains(time.Hour) && time.Minute == battleMinute)
+            if (Constants.BattleHours.Contains(time.Hour) && time.Minute == battleMinute)
             {
                 if (!_battleLock)
                 {
@@ -577,7 +668,6 @@ namespace palochki
 
         private bool CheckArenaBlocks(DateTime time)
         {
-            var afterBattleHours = new[] {1, 9, 17};
             var nightHours = new[] {7,8,15,16,23,0};
 
             if (time.Hour == 13 && time.Minute <= 1)
@@ -586,7 +676,7 @@ namespace palochki
                 return true;
             if(nightHours.Contains(time.Hour) || time.Hour == _skipHour)
                 return true;
-            if(afterBattleHours.Contains(time.Hour) && time.Minute < 9)
+            if(Constants.AfterBattleHours.Contains(time.Hour) && time.Minute < 9)
                 return true;
             return ArenaFightStarted.AddMinutes(6) > time;
         }
