@@ -82,9 +82,9 @@ namespace palochki
             var savesChatIds = savesChatIdsQuery.Split('\t');
             SavesChat = new DialogHandler(Client, Convert.ToInt32(savesChatIds[0]), Convert.ToInt64(savesChatIds[1]));
 
-            if (User.Username == "белиар")
+            if (User.AcceptOrders)
             {
-                var orderChatIds = (await ExtraUtilities.GetBotIdsByName(Client, "Дaниeль")).Split('\t');
+                var orderChatIds = (await ExtraUtilities.GetBotIdsByName(Client, User.OrdersChatName)).Split('\t');
                 OrdersChat = new DialogHandler(Client, Convert.ToInt32(orderChatIds[0]), Convert.ToInt64(orderChatIds[1]));
             }
 
@@ -102,6 +102,13 @@ namespace palochki
                 AfterBattleCounts.Add(0);
                 PreBattleCounts.Add(0);
             }
+
+            var arenaLog = await File.ReadAllLinesAsync("arenas");
+            var today = DateTime.Today;
+            var searchString = $"{User.Username}\t{today.Day}.{today.Month}.{today.Year}";
+            if (arenaLog.Any(s => s.Contains(searchString)))
+                _arenasPlayed = Convert.ToByte(arenaLog.FirstOrDefault(s => s.Contains(searchString))?.Split('\t')[2]);
+
 
             Console.WriteLine(
                 $"\nПользователь {User.Username} подключен\nЧат ги:{User.GuildChatName}\nТриггер на мобов:{User.MobsTrigger}\nКанал для реппортов караванов:{User.ResultsChatName}");
@@ -164,7 +171,7 @@ namespace palochki
                 }
             }
 
-            if (User.Username == "белиар")
+            if (User.AcceptOrders)
                 await CheckOrders();
 
             if (User.Username == "шпендаль")
@@ -212,6 +219,16 @@ namespace palochki
                 await TryDrinkRage();
             if (lastMes.Message.ToLower().Contains("бери"))
                 await TryTakeItems(lastMes);
+            if (lastMes.Message.ToLower().Contains("скинь героя"))
+                await GetHeroMessage();
+        }
+
+        private async Task GetHeroMessage()
+        {
+            await CwBot.SendMessage(Constants.HeroCommand);
+            Thread.Sleep(1500);
+            var lastBotMessage = await CwBot.GetLastMessage();
+            await MessageUtilities.ForwardMessage(Client, CwBot.Peer, OrdersChat.Peer, lastBotMessage.Id); 
         }
 
         private async Task TryTakeItems(TLMessage msgToCheck)
@@ -634,7 +651,7 @@ namespace palochki
             if(_arenasDisabled)
                 return;
             var time = DateTime.Now;
-            if(CheckArenaBlocks(time)) return;
+            if(await CheckArenaBlocks(time)) return;
 
             _skipHour = 25;
 
@@ -650,6 +667,7 @@ namespace palochki
                 return;
             }
             _arenasPlayed = ExtraUtilities.ParseArenasPlayed(botReply.Message);
+
             if(_arenasPlayed == 5)
                 return;
 
@@ -664,14 +682,29 @@ namespace palochki
             await File.AppendAllTextAsync(Constants.ActionLogFile,
                 $"{DateTime.Now}\n{User.Username} сходил на автоарену\n");
             ArenaFightStarted = time;
+
+            await UpdateArenasFile(_arenasPlayed,time);
         }
 
-        private bool CheckArenaBlocks(DateTime time)
+        private async Task UpdateArenasFile(byte arenasPlayed, DateTime time)
+        {
+            var arenaLog = await File.ReadAllLinesAsync("arenas");
+            var searchString = $"{User.Username}\t{time.Day}.{time.Month}.{time.Year}";
+            var index = Array.IndexOf(arenaLog,arenaLog.FirstOrDefault(s => s.Contains(searchString)));
+            arenaLog[index] = $"{User.Username}\t{time.Day}.{time.Month}.{time.Year}\t{arenasPlayed}";
+            File.WriteAllLines("arenas",arenaLog);
+        }
+
+        private async Task<bool> CheckArenaBlocks(DateTime time)
         {
             var nightHours = new[] {7,8,15,16,23,0};
 
             if (time.Hour == 13 && time.Minute <= 1)
+            {
                 _arenasPlayed = 0;
+                await UpdateArenasFile(0, time);
+            }
+
             if(_arenasPlayed == 5)
                 return true;
             if(nightHours.Contains(time.Hour) || time.Hour == _skipHour)

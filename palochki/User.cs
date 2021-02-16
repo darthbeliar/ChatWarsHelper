@@ -10,6 +10,8 @@
         public string MobsTrigger { get; }
         public bool HyperionUser { get; } = false;
         public bool EnableAllCW { get; } = false;
+        public bool AcceptOrders { get; }
+        public string OrdersChatName { get; }
 
         public User(string rawInput)
         {
@@ -22,6 +24,10 @@
             ResultsChatName = parsedInput[5];
             HyperionUser = parsedInput[6] == "true";
             EnableAllCW = parsedInput[7] == "true";
+            AcceptOrders = parsedInput[8] == "true";
+            OrdersChatName =  parsedInput[9];
         }
+
+
     }
 }
