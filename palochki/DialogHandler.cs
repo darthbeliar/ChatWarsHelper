@@ -35,5 +35,10 @@ namespace palochki
         {
             await MessageUtilities.PressButton(_client, Peer, message, row, button);
         }
+
+        public async Task<TLMessage> GetMessageById(int id)
+        {
+            return await MessageUtilities.GetMessageById(_client, Peer, id,false);
+        }
     }
 }

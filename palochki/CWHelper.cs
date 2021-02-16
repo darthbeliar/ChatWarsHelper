@@ -222,7 +222,7 @@ namespace palochki
                 return;
             }
 
-            var replyMsg = await GuildChat.GetMessageById(msgToCheck.ReplyToMsgId.Value);
+            var replyMsg = await OrdersChat.GetMessageById(msgToCheck.ReplyToMsgId.Value);
             if (!replyMsg.Message.Contains("/g_receive"))
             {
                 await OrdersChat.SendMessage("Нет ссылки на итемы");
@@ -230,7 +230,7 @@ namespace palochki
             }
 
             await CwBot.SendMessage(replyMsg.Message);
-            Thread.Sleep(1500);
+            Thread.Sleep(3000);
             var lastBotMessage = await CwBot.GetLastMessage();
             await MessageUtilities.ForwardMessage(Client, CwBot.Peer, OrdersChat.Peer, lastBotMessage.Id);
         }
