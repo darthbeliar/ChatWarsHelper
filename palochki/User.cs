@@ -27,7 +27,5 @@
             AcceptOrders = parsedInput[8] == "true";
             OrdersChatName =  parsedInput[9];
         }
-
-
     }
 }

@@ -102,13 +102,13 @@ namespace palochki
                 AfterBattleCounts.Add(0);
                 PreBattleCounts.Add(0);
             }
-
+            /*
             var arenaLog = await File.ReadAllLinesAsync("arenas");
             var today = DateTime.Today;
             var searchString = $"{User.Username}\t{today.Day}.{today.Month}.{today.Year}";
             if (arenaLog.Any(s => s.Contains(searchString)))
                 _arenasPlayed = Convert.ToByte(arenaLog.FirstOrDefault(s => s.Contains(searchString))?.Split('\t')[2]);
-
+*/
 
             Console.WriteLine(
                 $"\nПользователь {User.Username} подключен\nЧат ги:{User.GuildChatName}\nТриггер на мобов:{User.MobsTrigger}\nКанал для реппортов караванов:{User.ResultsChatName}");
@@ -543,17 +543,32 @@ namespace palochki
                 return;
             }
 
-            await CwBot.SendMessage(replyMsg.Message);
-            Thread.Sleep(1000);
+            await CwBot.SendMessage(Constants.HeroCommand);
+            Thread.Sleep(1500);
             lastBotMessage = await CwBot.GetLastMessage();
-            await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, lastBotMessage.Id);
+            var hp = lastBotMessage.Message.Split("❤️Здоровье: ")[1].Split('/')[0];
+            if (Convert.ToInt32(hp) > 900)
+            {
+                await CwBot.SendMessage(replyMsg.Message);
+                Thread.Sleep(1000);
+                lastBotMessage = await CwBot.GetLastMessage();
+                await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, lastBotMessage.Id);
 
-            if (replyMsg.Message.Contains("Forbidden Champion") && lastBotMessage.Message.Contains("собрался напасть") && !_potionForChampDisabled)
-                await DrinkPotions();
+                if (replyMsg.Message.Contains("Forbidden Champion") &&
+                    lastBotMessage.Message.Contains("собрался напасть") && !_potionForChampDisabled)
+                    await DrinkPotions();
 
-            Console.WriteLine($"{DateTime.Now}: {User.Username}: помог с мобами");
-            await File.AppendAllTextAsync(Constants.ActionLogFile,
-                $"{DateTime.Now}\n{User.Username} помог с мобами\n");
+                Console.WriteLine($"{DateTime.Now}: {User.Username}: помог с мобами");
+                await File.AppendAllTextAsync(Constants.ActionLogFile,
+                    $"{DateTime.Now}\n{User.Username} помог с мобами\n");
+            }
+            else
+            {
+                if(msgToCheck.FromId == 255464103)
+                    await GuildChat.SendMessage("лучше бы /g_q_discard_a10 надала чем пытаться убить лоухп труня криса");
+                else
+                    await GuildChat.SendMessage("а /hp нажать?");
+            }
         }
 
         private async Task DrinkPotions()
@@ -667,32 +682,36 @@ namespace palochki
                 return;
             }
             _arenasPlayed = ExtraUtilities.ParseArenasPlayed(botReply.Message);
+            //await UpdateArenasFile(_arenasPlayed,time);
 
             if(_arenasPlayed == 5)
                 return;
 
             await CwBot.SendMessage(Constants.FastFightCommand);
             Thread.Sleep(1000);
+
             botReply = await CwBot.GetLastMessage();
             if (botReply.Message !=  Constants.SuccessArenaStart)
                 _skipHour = (byte)time.Hour;
+
             if (_arenasPlayed == 4)
                 _arenasPlayed = 5;
+
             Console.WriteLine($"{DateTime.Now}: {User.Username}: ушел на арену");
             await File.AppendAllTextAsync(Constants.ActionLogFile,
                 $"{DateTime.Now}\n{User.Username} сходил на автоарену\n");
             ArenaFightStarted = time;
 
-            await UpdateArenasFile(_arenasPlayed,time);
+            //await UpdateArenasFile(_arenasPlayed,time);
         }
 
         private async Task UpdateArenasFile(byte arenasPlayed, DateTime time)
         {
             var arenaLog = await File.ReadAllLinesAsync("arenas");
-            var searchString = $"{User.Username}\t{time.Day}.{time.Month}.{time.Year}";
+            var searchString = $"{User.Username}\t";
             var index = Array.IndexOf(arenaLog,arenaLog.FirstOrDefault(s => s.Contains(searchString)));
             arenaLog[index] = $"{User.Username}\t{time.Day}.{time.Month}.{time.Year}\t{arenasPlayed}";
-            File.WriteAllLines("arenas",arenaLog);
+            await File.WriteAllLinesAsync("arenas",arenaLog);
         }
 
         private async Task<bool> CheckArenaBlocks(DateTime time)
@@ -702,7 +721,7 @@ namespace palochki
             if (time.Hour == 13 && time.Minute <= 1)
             {
                 _arenasPlayed = 0;
-                await UpdateArenasFile(0, time);
+                //await UpdateArenasFile(0, time);
             }
 
             if(_arenasPlayed == 5)
