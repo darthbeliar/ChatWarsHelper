@@ -185,6 +185,8 @@ namespace palochki
             if (_morningQuest || _stamaDisabled)
                 return;
             var time = DateTime.Now;
+            if (time.Hour == 9 && time.Minute < 2)
+                _morningQuest = false;
             if (time.Hour == 8 && time.Minute > 10)
             {
                 await UseStamina();
@@ -565,9 +567,14 @@ namespace palochki
             else
             {
                 if(msgToCheck.FromId == 255464103)
-                    await GuildChat.SendMessage("лучше бы /g_q_discard_a10 надала чем пытаться убить лоухп труня криса");
+                    await GuildChat.SendMessage("лучше бы /g_q_discard_a10 нажала чем пытаться убить лоухпшного криса");
                 else
-                    await GuildChat.SendMessage("а /hp нажать?");
+                {
+                    var replys = File.ReadAllLines("replies");
+                    var rng = new Random();
+                    var i = rng.Next(replys.Length);
+                    await GuildChat.SendMessage(replys[i]);
+                }
             }
         }
 
