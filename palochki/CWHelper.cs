@@ -177,7 +177,33 @@ namespace palochki
             if (User.Username == "шпендаль")
                 await CheckBotOrder();
 
+            if (User.Username == "алух")
+                await CheckGiveOrder();
+
             Console.WriteLine($"{DateTime.Now}: {User.Username}: цикл проверок завершен");
+        }
+
+        private async Task CheckGiveOrder()
+        {
+            var msgToCheck = await GuildChat.GetLastMessage();
+            if (msgToCheck.Message.ToLower() != "дай криса")
+                return;
+            if (msgToCheck.ReplyToMsgId == null)
+            {
+                await GuildChat.SendMessage("нужен реплай");
+                return;
+            }
+
+            var replyMsg = await GuildChat.GetMessageById(msgToCheck.ReplyToMsgId.Value);
+            if (!replyMsg.Message.ToLower().Contains("/g_withdraw"))
+            {
+                await GuildChat.SendMessage("нет запроса выдачи в реплае");
+                return;
+            }
+            await CwBot.SendMessage(replyMsg.Message);
+            Thread.Sleep(2000);
+            var lastBotMessage = await CwBot.GetLastMessage();
+            await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, lastBotMessage.Id);
         }
 
         private async Task MorningQuest()
@@ -206,6 +232,8 @@ namespace palochki
             }
 
             var replyMsg = await GuildChat.GetMessageById(msgToCheck.ReplyToMsgId.Value);
+            if(replyMsg.Message.ToLower().Contains("/g_receive"))
+                Thread.Sleep(4000);
             await CwBot.SendMessage(replyMsg.Message);
             Thread.Sleep(2000);
             var lastBotMessage = await CwBot.GetLastMessage();
