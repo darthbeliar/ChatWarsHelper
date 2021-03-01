@@ -208,12 +208,10 @@ namespace palochki
 
         private async Task MorningQuest()
         {
+            var time = DateTime.Now;
             if (_morningQuest || _stamaDisabled)
                 return;
-            var time = DateTime.Now;
-            if (time.Hour == 9 && time.Minute < 2)
-                _morningQuest = false;
-            if (time.Hour == 8 && time.Minute > 10)
+            if (time.Hour == 8 && time.Minute > 10 && time.Minute < 14)
             {
                 await UseStamina();
                 _morningQuest = true;
@@ -277,7 +275,7 @@ namespace palochki
             }
 
             await CwBot.SendMessage(replyMsg.Message);
-            Thread.Sleep(3000);
+            Thread.Sleep(10000);
             var lastBotMessage = await CwBot.GetLastMessage();
             await MessageUtilities.ForwardMessage(Client, CwBot.Peer, OrdersChat.Peer, lastBotMessage.Id);
         }
@@ -756,6 +754,7 @@ namespace palochki
             if (time.Hour == 13 && time.Minute <= 1)
             {
                 _arenasPlayed = 0;
+                _morningQuest = false;
                 //await UpdateArenasFile(0, time);
             }
 
