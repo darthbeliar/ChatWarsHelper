@@ -636,9 +636,9 @@ namespace palochki
         {
             if(_autoGdefDisabled)
                 return;
-            const int battleMinute = 59;
+            const int battleMinute = 58;
             var time = DateTime.Now;
-            if (Constants.BattleHours.Contains(time.Hour) && time.Minute == battleMinute)
+            if (Constants.BattleHours.Contains(time.Hour) && time.Minute >= battleMinute)
             {
                 if (!_battleLock)
                 {
@@ -667,6 +667,11 @@ namespace palochki
                         }
                     }
 
+                    if (User.Username == "белиар")
+                    {
+                        await CheckRing("u127");
+                    }
+
                     _battleLock = true;
                 }
             }
@@ -674,6 +679,26 @@ namespace palochki
             {
                 _battleLock = false;
             }
+        }
+
+        private async Task CheckRing(string ringname)
+        {
+            var atk = false;
+            var def = false;
+            await CwBot.SendMessage(Constants.HeroCommand);
+            Thread.Sleep(2000);
+            var reply = await CwBot.GetLastMessage();
+            if (reply.Message.Contains("🛡Defending") || reply.Message.Contains("🛡Защита "))
+                def = true;
+            if (reply.Message.Contains("⚔️Attacking") || reply.Message.Contains("⚔️Атака "))
+                atk = true;
+            await CwBot.SendMessage("/inv");
+            Thread.Sleep(2000);
+            reply = await CwBot.GetLastMessage();
+            if (reply.Message.Contains($"/off_{ringname}") && def)
+                await CwBot.SendMessage($"/off_{ringname}");
+            if (reply.Message.Contains($"/on_{ringname}") && atk)
+                await CwBot.SendMessage($"/on_{ringname}");
         }
 
         private static List<int> ParseStock(string botReplyMessage)
