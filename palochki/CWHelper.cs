@@ -232,6 +232,8 @@ namespace palochki
             var replyMsg = await GuildChat.GetMessageById(msgToCheck.ReplyToMsgId.Value);
             if(replyMsg.Message.ToLower().Contains("/g_receive"))
                 Thread.Sleep(14000);
+            if(replyMsg.Message.ToLower().Contains("//g_deposit"))
+                Thread.Sleep(7000);
             await CwBot.SendMessage(replyMsg.Message);
             Thread.Sleep(2000);
             var lastBotMessage = await CwBot.GetLastMessage();
