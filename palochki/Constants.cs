@@ -4,6 +4,8 @@ namespace palochki
 {
     internal static class Constants
     {
+        public const int TeaId = 1367374268;
+        public const long TeaHash = -2353873925669309700;
         public const string BotName = "Chat Wars 3";
         public const string ActionLogFile = "action_log_cw";
         public const string HyperionBotName = "Игра Hyperion [Beta]";

@@ -22,7 +22,7 @@ namespace palochki
             {
                 await client.MakeAuthAsync(num, hash, code);
             }
-            catch (CloudPasswordNeededException ex)
+            catch (CloudPasswordNeededException)
             {
                 Console.WriteLine("\nВведите облачный пароль\n");
                 var password_str = Console.ReadLine();

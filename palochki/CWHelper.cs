@@ -74,9 +74,18 @@ namespace palochki
             var botIds = botIdsQuery.Split('\t');
             CwBot = new DialogHandler(Client, Convert.ToInt32(botIds[0]), Convert.ToInt64(botIds[1]));
 
-            var guildChatIdsQuery = await ExtraUtilities.GetChannelIdsByName(Client, User.GuildChatName);
-            var guildChatIds = guildChatIdsQuery.Split('\t');
-            GuildChat = new ChannelHandler(Client, Convert.ToInt32(guildChatIds[0]), Convert.ToInt64(guildChatIds[1]));
+            if (User.GuildChatName != "tea")
+            {
+                var guildChatIdsQuery = await ExtraUtilities.GetChannelIdsByName(Client, User.GuildChatName);
+                var guildChatIds = guildChatIdsQuery.Split('\t');
+                 GuildChat = new ChannelHandler(Client, Convert.ToInt32(guildChatIds[0]),
+                    Convert.ToInt64(guildChatIds[1]));
+            }
+            else
+            {
+                GuildChat = new ChannelHandler(Client, Constants.TeaId,Constants.TeaHash
+                    );
+            }
 
             var savesChatIdsQuery = await ExtraUtilities.GetBotIdsByName(Client, Client.Session.TLUser.FirstName);
             var savesChatIds = savesChatIdsQuery.Split('\t');
@@ -181,7 +190,7 @@ namespace palochki
                 await CheckGiveOrder();
 
             Console.WriteLine($"{DateTime.Now}: {User.Username}: цикл проверок завершен");
-        }
+         }
 
         private async Task CheckGiveOrder()
         {
@@ -232,7 +241,7 @@ namespace palochki
             var replyMsg = await GuildChat.GetMessageById(msgToCheck.ReplyToMsgId.Value);
             if(replyMsg.Message.ToLower().Contains("/g_receive"))
                 Thread.Sleep(14000);
-            if(replyMsg.Message.ToLower().Contains("//g_deposit"))
+            if(replyMsg.Message.ToLower().Contains("/g_deposit"))
                 Thread.Sleep(7000);
             await CwBot.SendMessage(replyMsg.Message);
             Thread.Sleep(2000);
