@@ -78,13 +78,16 @@ namespace palochki
             {
                 var guildChatIdsQuery = await ExtraUtilities.GetChannelIdsByName(Client, User.GuildChatName);
                 var guildChatIds = guildChatIdsQuery.Split('\t');
-                 GuildChat = new ChannelHandler(Client, Convert.ToInt32(guildChatIds[0]),
+                Console.WriteLine(guildChatIds[0]);
+                Console.WriteLine(guildChatIds[1]);
+                GuildChat = new ChannelHandler(Client, Convert.ToInt32(guildChatIds[0]),
                     Convert.ToInt64(guildChatIds[1]));
             }
             else
             {
-                GuildChat = new ChannelHandler(Client, Constants.TeaId,Constants.TeaHash
-                    );
+                GuildChat = User.Username == "трунь2"
+                    ? new ChannelHandler(Client, Constants.TeaId, Constants.TeaHash)
+                    : new ChannelHandler(Client, Constants.TeaId, Constants.TeaHashRat);
             }
 
             var savesChatIdsQuery = await ExtraUtilities.GetBotIdsByName(Client, Client.Session.TLUser.FirstName);

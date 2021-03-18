@@ -6,6 +6,7 @@ namespace palochki
     {
         public const int TeaId = 1367374268;
         public const long TeaHash = -2353873925669309700;
+        public const long TeaHashRat = -4395009601557975733;
         public const string BotName = "Chat Wars 3";
         public const string ActionLogFile = "action_log_cw";
         public const string HyperionBotName = "Игра Hyperion [Beta]";
