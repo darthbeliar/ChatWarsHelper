@@ -78,8 +78,6 @@ namespace palochki
             {
                 var guildChatIdsQuery = await ExtraUtilities.GetChannelIdsByName(Client, User.GuildChatName);
                 var guildChatIds = guildChatIdsQuery.Split('\t');
-                Console.WriteLine(guildChatIds[0]);
-                Console.WriteLine(guildChatIds[1]);
                 GuildChat = new ChannelHandler(Client, Convert.ToInt32(guildChatIds[0]),
                     Convert.ToInt64(guildChatIds[1]));
             }
@@ -479,8 +477,6 @@ namespace palochki
                         botReply = await CwBot.GetLastMessage();
                         if (botReply.Message.Contains("Guild Warehouse"))
                         {
-                            await MessageUtilities.ForwardMessage(Client, CwBot.Peer, CorovansLogChat.Peer,
-                                botReply.Id);
                             AfterBattleCounts = ParseStock(botReply.Message);
                         }
 
@@ -675,8 +671,6 @@ namespace palochki
                         botReply = await CwBot.GetLastMessage();
                         if (botReply.Message.Contains("Guild Warehouse"))
                         {
-                            await MessageUtilities.ForwardMessage(Client, CwBot.Peer, CorovansLogChat.Peer,
-                                botReply.Id);
                             PreBattleCounts = ParseStock(botReply.Message);
                         }
                     }
@@ -704,7 +698,7 @@ namespace palochki
             var reply = await CwBot.GetLastMessage();
             if (reply.Message.Contains("🛡Defending") || reply.Message.Contains("🛡Защита "))
                 def = true;
-            if (reply.Message.Contains("⚔️Attacking") || reply.Message.Contains("⚔️Атака "))
+            else
                 atk = true;
             await CwBot.SendMessage("/inv");
             Thread.Sleep(2000);
