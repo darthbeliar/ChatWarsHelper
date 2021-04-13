@@ -1,30 +1,32 @@
-﻿using System;
+﻿#nullable enable
+using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using palochki.DB_Stuff;
 
 namespace palochki
 {
     internal static class Program
     {
+        public static PalockiContext Db = new PalockiContext();
         private static async Task Main()
         {
             Console.WriteLine("бот стартанул тип");
-            var helpersCw = await PrepareHelpersCw();
-            var helpersHyp = await PrepareHelpersHyp(helpersCw);
+            var helpersCw = await PrepareHelpersCw(Db);
+            //var helpersHyp = await PrepareHelpersHyp(helpersCw);
             try
             {
-                await MainLoop(helpersCw,helpersHyp);
+                await MainLoop(helpersCw);//,helpersHyp);
             }
             catch (Exception e)
             {
                 Console.WriteLine(e);
-                await MainLoop(helpersCw,helpersHyp);
+                await MainLoop(helpersCw); //,helpersHyp);
             }
         }
-
+        /*
         private static async Task<List<HyperionHelper>> PrepareHelpersHyp(List<CwHelper> helpersCw)
         {
             try
@@ -49,13 +51,16 @@ namespace palochki
                 return await PrepareHelpersHyp(helpersCw);
             }
         }
-
-        private static async Task<List<CwHelper>> PrepareHelpersCw()
+        */
+        private static async Task<List<CwHelper>> PrepareHelpersCw(PalockiContext dB)
         {
             try
             {
-                var settingsFile = await File.ReadAllLinesAsync(Constants.InputFileName);
-                var helpersCw = settingsFile.Select(line => new User(line)).Select(user => new CwHelper(user)).ToList();
+                var helpersCw = new List<CwHelper>();
+                foreach (var user in Db.DbUsers)
+                {
+                    helpersCw.Add(new CwHelper(user));
+                }
                 foreach (var cwHelper in helpersCw)
                 {
                     await cwHelper.InitHelper();
@@ -72,26 +77,39 @@ namespace palochki
         }
 
         // ReSharper disable once FunctionRecursiveOnAllPaths
-        private static async Task MainLoop(List<CwHelper> helpersCw,List<HyperionHelper> helpersHyp)
+        private static async Task MainLoop(IReadOnlyCollection<CwHelper> helpersCw)//,List<HyperionHelper> helpersHyp)
         {
             try
             {
                 while (true)
                 {
+                    for (var i = 0; i < 6; i++)
+                    {
+                        foreach (var cwHelper in helpersCw)
+                        {
+                            await cwHelper.PerformFastRoutine();
+                            Console.WriteLine($"{DateTime.Now} Fast {i} - {cwHelper.User.UserName} OK");
+                        }
+                        Thread.Sleep(2000);
+                    }
+
                     foreach (var cwHelper in helpersCw)
                     {
                         await cwHelper.PerformStandardRoutine();
                     }
-
-                    Thread.Sleep(4000);
-                    foreach (var helperHyp in helpersHyp)
-                    {
-                        await helperHyp.DoFarm();
-                        Console.WriteLine($"{DateTime.Now}: {helperHyp.User.Username}: цикл гипера завершен");
-                    }
-                    Thread.Sleep(4000);
-
+                    Thread.Sleep(1000);
                 }
+
+                //гипера на хуй пока в бане
+                /*
+                foreach (var helperHyp in helpersHyp)
+                {
+                    await helperHyp.DoFarm();
+                    Console.WriteLine($"{DateTime.Now}: {helperHyp.User.Username}: цикл гипера завершен");
+                }
+                Thread.Sleep(4000);
+                */
+                //}
             }
             catch (Exception e)
             {
@@ -102,7 +120,8 @@ namespace palochki
                 {
                     await cwHelper.Client.ConnectAsync();
                 }
-                await MainLoop(helpersCw,helpersHyp);
+
+                await MainLoop(helpersCw); //,helpersHyp);
                 throw;
             }
         }

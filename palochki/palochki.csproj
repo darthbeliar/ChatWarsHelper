@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -6,8 +6,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="System.Data.SQLite" Version="1.0.113.7" />
     <PackageReference Include="TeleSharp.TL.Core" Version="1.0.0.1" />
     <PackageReference Include="TLSharp" Version="0.1.0.555" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="palochkiDB.db">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

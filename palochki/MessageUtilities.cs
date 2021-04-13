@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using TeleSharp.TL;
@@ -18,8 +19,16 @@ namespace palochki
             }
             else
             {
-                var msgHistory = await client.GetHistoryAsync(peer, limit: 1) as TLMessagesSlice;
-                return msgHistory?.Messages[0] as TLMessage;
+                try
+                {
+                    var msgHistory = await client.GetHistoryAsync(peer, limit: 1) as TLMessagesSlice;
+                    return msgHistory?.Messages[0] as TLMessage;
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                    throw;
+                }
             }
         }
 

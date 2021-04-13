@@ -38,6 +38,7 @@ namespace palochki
                 foreach (var tlAbsChat in chats.Chats)
                 {
                     var channel = tlAbsChat as TLChannel;
+                    Console.WriteLine($"{channel?.Title} = {channel?.Id}");
                     if (channel == null || channel.Title != name) continue;
                     var id = channel.Id;
                     var hash = channel.AccessHash;
@@ -51,6 +52,27 @@ namespace palochki
                 var id = channel.Id;
                 var hash = channel.AccessHash;
                 return $"{id}\t{hash}";
+            }
+            return null;
+        }
+
+        internal static async Task<string> GetChannelNameById(TelegramClient client, int? guildChatId)
+        {
+            var chats = await client.GetUserDialogsAsync() as TLDialogsSlice;
+            if (chats?.Chats != null)
+                foreach (var tlAbsChat in chats.Chats)
+                {
+                    var channel = tlAbsChat as TLChannel;
+                    Console.WriteLine($"{channel?.Title} = {channel?.Id}");
+                    if (channel == null || channel.Id != guildChatId) continue;
+                    return channel.Title;
+                }
+            var chats2 = (TLDialogs) await client.GetUserDialogsAsync();
+            foreach (var tlAbsChat in chats2.Chats)
+            {
+                var channel = tlAbsChat as TLChannel;
+                if (channel == null || channel.Id != guildChatId) continue;
+                return channel.Title;
             }
             return null;
         }
