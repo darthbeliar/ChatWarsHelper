@@ -764,11 +764,26 @@ namespace palochki
                 await GuildChat.SendMessage($"мобы слишком большие, мой лвл {lvl}, самый большой моб в пачке {maxLvl}");
                 return;
             }
+            Thread.Sleep(1000);
             await CwBot.SendMessage(replyMsg.Message);
-            var lastBotMessage = await WaitForCwBotReply();
-            while (lastBotMessage.FromId != Constants.CwBotId)
+            Thread.Sleep(1000);
+            var lastBotMessage = await CwBot.GetLastMessage();
+            if(lastBotMessage.FromId != Constants.CwBotId)
             {
-                lastBotMessage = await WaitForCwBotReply();
+                await CwBot.SendMessage(replyMsg.Message); 
+                Thread.Sleep(2000);
+                lastBotMessage = await CwBot.GetLastMessage();
+                if (lastBotMessage.FromId != Constants.CwBotId)
+                {
+                    await CwBot.SendMessage(replyMsg.Message); 
+                    Thread.Sleep(3000);
+                    lastBotMessage = await CwBot.GetLastMessage();
+                    if (lastBotMessage.FromId != Constants.CwBotId)
+                    {
+                        await GuildChat.SendMessage("ЧВ не схавал моба");
+                        return;
+                    }
+                }
             }
             await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, lastBotMessage.Id);
 
