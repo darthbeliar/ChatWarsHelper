@@ -83,7 +83,7 @@ namespace palochki
             {
                 while (true)
                 {
-                    for (var i = 0; i < 6; i++)
+                    for (var i = 0; i < 2; i++)
                     {
                         foreach (var cwHelper in helpersCw)
                         {

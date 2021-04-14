@@ -445,7 +445,7 @@ namespace palochki
 
         private async Task TrySetPin(TLMessage msg,bool personalOrder = false)
         {
-            if(msg.Id == _lastBadRequestId)
+            if(msg.Id == UserInfo.LastBadRequestId)
                 return;
             var parsed = msg.Message.Split(' ');
 
@@ -464,15 +464,24 @@ namespace palochki
             
             if (Constants.Castles.Contains(pin))
             {
-                await CwBot.SendMessage("/g_def");
-                var replyToAttack = await WaitForCwBotReply();
-                if (!replyToAttack.Message.Contains("Ты приготовился к защите."))
+                var attackWord2 = new char[6];
+                attackWord2[0] = Convert.ToChar(9876);
+                attackWord2[1] = Convert.ToChar(1040);
+                attackWord2[2] = Convert.ToChar(1090);
+                attackWord2[3] = Convert.ToChar(1072);
+                attackWord2[4] = Convert.ToChar(1082);
+                attackWord2[5] = Convert.ToChar(1072);
+                await CwBot.SendMessage(new string(attackWord2));
+                Thread.Sleep(2000);
+                var replyToAttack = await CwBot.GetLastMessage();
+                if (replyToAttack.Message != "Смелый вояка! Выбирай врага")
                 {
-                    if (personalOrder)
-                        await MessageUtilities.ForwardMessage(Client, CwBot.Peer, OrdersChat.Peer, replyToAttack.Id);
+                    if(personalOrder)
+                        await OrdersChat.SendMessage(replyToAttack.Message);
                     else
-                        await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, replyToAttack.Id);
-                    _lastBadRequestId = replyToAttack.Id;
+                        await GuildChat.SendMessage(replyToAttack.Message);
+                    UserInfo.LastBadRequestId = msg.Id;
+                    await Program.Db.SaveChangesAsync();
                     return;
                 }
             }
@@ -492,7 +501,8 @@ namespace palochki
                 await MessageUtilities.ForwardMessage(Client, CwBot.Peer, OrdersChat.Peer, reply.Id);
             else
                 await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, reply.Id);
-            _lastBadRequestId = msg.Id;
+            UserInfo.LastBadRequestId = msg.Id;
+            await Program.Db.SaveChangesAsync();
         }
 
         private async Task CheckControls()
@@ -856,7 +866,7 @@ namespace palochki
                             $"{DateTime.Now}\n{User.UserName} сходил в автогидеф\n");
                     }
 
-                    if (User.ResultsChatName != Constants.AbsendResultsChat)
+                    if (!string.IsNullOrEmpty(User.ResultsChatName))
                     {
                         await CwBot.SendMessage("/g_stock_res");
                         Thread.Sleep(2000);
