@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data.Entity;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -90,6 +91,7 @@ namespace palochki
 
         public async Task PerformStandardRoutine()
         {
+            UserInfo = await Program.Db.UserInfos.FirstOrDefaultAsync(u => u.UserId == User.Id);
             await CheckControls();
             if (User.BotEnabled != 1)
                 return;
@@ -113,9 +115,9 @@ namespace palochki
                 await HelpWithMobs(msgToCheck);
             }
 
-            if (msgsToCheck.Any(m => m != null && m.Message.Contains($"{User.UserName} пин")))
+            if (msgsToCheck.Any(m => m != null && m.Message.ToLower().Contains($"{User.UserName} пин".ToLower())))
             {
-                await TrySetPin(msgsToCheck.FirstOrDefault(m => m.Message.Contains($"{User.UserName} пин")));
+                await TrySetPin(msgsToCheck.FirstOrDefault(m => m.Message.ToLower().Contains($"{User.UserName} пин".ToLower())));
             }
 
             if (User.AcceptOrders == 1)
@@ -193,9 +195,6 @@ namespace palochki
                         StringComparison.InvariantCultureIgnoreCase) == 0 &&
                     !Program.Db.UserFights.Any(u=>u.FightMsgId == message.Id && u.UserId == User.Id));
                 var newFight = new UserFight {FightMsgId = msgToCheck.Id,UserDb = User, UserId = User.Id};
-                Console.WriteLine(newFight.FightId);
-                if(newFight.FightMsgId != null)
-                    Console.WriteLine("NOT NULL CYKA");
                 Program.Db.UserFights.Add(newFight);
                 await Program.Db.SaveChangesAsync();
                 await HelpWithMobs(msgToCheck);
@@ -219,7 +218,7 @@ namespace palochki
         private async Task CheckHerbCommand()
         {
             var msgToCheck = await GuildChat.GetLastMessage();
-            if (msgToCheck.Message.Contains("выдай травы ") && msgToCheck.Message.Split(' ').Length == 3)
+            if ((msgToCheck.Message.ToLower().Contains("выдай травы ") || msgToCheck.Message.ToLower().Contains("выдай трав ")) && msgToCheck.Message.Split(' ').Length == 3)
             {
                 if (msgToCheck.ReplyToMsgId == null)
                 {
@@ -514,6 +513,8 @@ namespace palochki
                 case "help":
                     await SavesChat.SendMessage(
                         "stop bot = полностью выключить бота\nstart bot = полностью включить бота\nenable arenas = включить автоарены\ndisable arenas = выключить автоарены\nenable stama = включить автослив стамины\ndisable stama = выключить автослив стамины\nenable def = включить автогидеф\ndisable def = выключить автогидеф\nbot status = состояние функций бота\ndisable potions = выключить автозелья на чемпа\nenable potions = включить автозелья на чемпа");
+                    await SavesChat.SendMessage(
+                        "Доп команды: \n[юзер] пин [цель] \nдай криса реплаем в чате чая \n выдай трав [x] в ботодельне");
                     break;
                 case "bot status":
                     await SavesChat.SendMessage(
@@ -680,7 +681,7 @@ namespace palochki
                 lastMsg = await CwBot.GetLastMessage();
                 tries++;
             }
-
+            Thread.Sleep(500);
             return lastMsg;
         }
 
@@ -731,6 +732,13 @@ namespace palochki
             var hp = lastBotMessage.Message.Split("❤️Здоровье: ")[1].Split('/')[0];
             var maxHp = lastBotMessage.Message.Split("❤️Здоровье: ")[1].Split('/')[1].Split('\n')[0];
             var coef = double.Parse(hp) / double.Parse(maxHp);
+
+            if (lastBotMessage.Message.Contains("🎯"))
+            {
+                var aimMes = lastBotMessage.Message.Split("Состояние:")[1].Split("Подробнее")[0];
+                await GuildChat.SendMessage($"не могу, в аиме\n{aimMes}");
+                return;
+            }
 
             if (coef > 0.5 &&
                 int.TryParse(lastBotMessage.Message.Split("Уровень: ")[1].Substring(0, 2), out var lvl))
