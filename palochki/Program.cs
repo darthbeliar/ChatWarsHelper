@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using palochki.DB_Stuff;
@@ -115,6 +116,8 @@ namespace palochki
             {
                 Console.WriteLine(e);
                 await File.AppendAllTextAsync(Constants.ErrorLogFileName, $"{DateTime.Now}\n{e.Message}\n");
+                var errorHandler = helpersCw.FirstOrDefault(h => h.User.UserName == "трунь");
+                await errorHandler.LogChat.SendMessage($"{e.Message}\n\n{e.StackTrace}");
                 Thread.Sleep(30000);
                 foreach (var cwHelper in helpersCw)
                 {

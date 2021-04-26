@@ -13,7 +13,7 @@ namespace palochki
 {
     internal class CwHelper
     {
-        private int _lastBadRequestId;
+        private int _logClock;
         public UserDb User { get; }
         public UserInfo UserInfo { get; set; }
         public TelegramClient Client { get; }
@@ -21,6 +21,7 @@ namespace palochki
         public DialogHandler SavesChat { get; set; }
         public DialogHandler OrdersChat { get; set; }
         public ChannelHandler GuildChat { get; set; }
+        public ChannelHandler LogChat { get; set; }
         public ChannelHandler CorovansLogChat { get; set; }
         public List<int> PreBattleCounts = new List<int>(39);
         public List<int> AfterBattleCounts = new List<int>(39);
@@ -29,7 +30,7 @@ namespace palochki
         {
             User = user;
             Client = new TelegramClient(int.Parse(user.UserTelId), user.UserTelHash,null,user.UserName);
-            _lastBadRequestId = 0;
+            _logClock = 0;
         }
 
         public async Task InitHelper()
@@ -85,12 +86,20 @@ namespace palochki
                 PreBattleCounts.Add(0);
             }
 
+            if (User.UserName == "трунь")
+            {
+                var logChatIdsQuery = await ExtraUtilities.GetChannelIdsByName(Client, "TrunBanAppLogs");
+                var logChatIds = logChatIdsQuery.Split('\t');
+                LogChat = new ChannelHandler(Client, Convert.ToInt32(logChatIds[0]), Convert.ToInt64(logChatIds[1]));
+            }
+
             Console.WriteLine(
                 $"\nПользователь {User.UserName} подключен\nЧат ги:{User.GuildChatName}\nТриггер на мобов:{User.UserName} мобы\nКанал для реппортов караванов:{User.ResultsChatName}");
         }
 
         public async Task PerformStandardRoutine()
         {
+            await DoLog();
             UserInfo = await Program.Db.UserInfos.FirstOrDefaultAsync(u => u.UserId == User.Id);
             await CheckControls();
             if (User.BotEnabled != 1)
@@ -176,6 +185,20 @@ namespace palochki
             }
 
             Console.WriteLine($"{DateTime.Now}: {User.UserName}: цикл проверок завершен");
+        }
+
+        private async Task DoLog()
+        {
+            if (User.UserName != "трунь")
+                return;
+            if (_logClock < 10)
+            {
+                _logClock++;
+                return;
+            }
+
+            _logClock = 0;
+            await LogChat.SendMessage("ОК");
         }
 
         public async Task PerformFastRoutine()
@@ -455,7 +478,8 @@ namespace palochki
                         "Неверный формат команды. Должна состоять из 3 слов через пробел(имя пин цель)");
                 else 
                     await GuildChat.SendMessage("Неверный формат команды. Должна состоять из 3 слов через пробел(имя пин цель)");
-                _lastBadRequestId = msg.Id;
+                UserInfo.LastBadRequestId = msg.Id;
+                await Program.Db.SaveChangesAsync();
                 return;
             }
             
@@ -490,7 +514,8 @@ namespace palochki
                     await OrdersChat.SendMessage("не распознал пин");
                 else
                     await GuildChat.SendMessage("не распознал пин");
-                _lastBadRequestId = msg.Id;
+                UserInfo.LastBadRequestId = msg.Id;
+                await Program.Db.SaveChangesAsync();
                 return;
             }
 
@@ -618,7 +643,7 @@ namespace palochki
                                 var change = AfterBattleCounts[i] - PreBattleCounts[i];
                                 if (change == 0) continue;
                                 noChanges = false;
-                                var sign = change > 0 ? "+" : "-";
+                                var sign = change > 0 ? "+" : "";
                                 msg += $"{Constants.CwItems[i]} {sign}{change}\n";
                             }
 
@@ -740,7 +765,7 @@ namespace palochki
                 return;
             }
 
-            if (coef > 0.5 &&
+            if (coef > 0.4 &&
                 int.TryParse(lastBotMessage.Message.Split("Уровень: ")[1].Substring(0, 2), out var lvl))
             {
                 await HelpIfMobsNotTooBig(lvl, replyMsg);
@@ -751,7 +776,9 @@ namespace palochki
                     await GuildChat.SendMessage("лучше бы /g_q_discard_a10 нажала чем пытаться убить лоухпшного криса");
                 else
                 {
-                    await GuildChat.SendMessage($"Мало хп({hp}/{maxHp}), хожу только когда больше половины");
+                    var lowHpReplies = Program.Db.LowHpReplies.Select(x=>x.Reply).ToArray();
+                    var rng = new Random();
+                    await GuildChat.SendMessage(lowHpReplies[rng.Next(0,lowHpReplies.Length-1)]);
                 }
             }
         }
@@ -972,7 +999,6 @@ namespace palochki
             }
             UserInfo.ArenasPlayed = ExtraUtilities.ParseArenasPlayed(botReply.Message);
             await Program.Db.SaveChangesAsync();
-            //await UpdateArenasFile(_arenasPlayed,time);
 
             if (UserInfo.ArenasPlayed == 5)
                 return;
@@ -1002,14 +1028,13 @@ namespace palochki
         {
             if (time.Hour == 13 && time.Minute <= 1)
             {
+                if (User.UserName == "шпендаль" && UserInfo.ArenasPlayed != 0)
+                    await CheckBottles(507, 506);
+                if (User.UserName == "наста" && UserInfo.ArenasPlayed != 0)
+                    await CheckBottles(509, 508);
                 UserInfo.ArenasPlayed = 0;
                 UserInfo.MorningQuest = 0;
                 await Program.Db.SaveChangesAsync();
-                if (User.UserName == "шпендаль")
-                    await CheckBottles(507, 506);
-                if (User.UserName == "наста")
-                    await CheckBottles(509, 508);
-                //await UpdateArenasFile(0, time);
             }
 
             if(UserInfo.ArenasPlayed == 5)

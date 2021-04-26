@@ -10,6 +10,7 @@ namespace palochki.DB_Stuff
         public DbSet<UserFight> UserFights{ get; set; }
         public DbSet<UserInfo> UserInfos{ get; set; }
         public DbSet<UserDb> DbUsers{ get; set; }
+        public DbSet<LowHpReplies> LowHpReplies{ get; set; }
 
         public PalockiContext() :
             base(new SQLiteConnection()
