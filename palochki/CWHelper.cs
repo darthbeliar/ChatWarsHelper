@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data.Entity;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using palochki.DB_Stuff;
@@ -198,7 +199,14 @@ namespace palochki
             }
 
             _logClock = 0;
-            await LogChat.SendMessage("ОК");
+            var goodLogs = new StringBuilder();
+            foreach (var log in Program.Logs)
+            {
+                goodLogs.Append(log);
+                goodLogs.Append('\n');
+            }
+            Program.Logs.Clear();
+            await LogChat.SendMessage($"{goodLogs}ОК");
         }
 
         public async Task PerformFastRoutine()
@@ -285,6 +293,7 @@ namespace palochki
                 if (commandLength > 0)
                 {
                     await GuildChat.SendMessage(command);
+                    Program.Logs.Add($"{User.UserName} сделал хуйню с травами");
                     Thread.Sleep(1000);
                 }
             }
@@ -292,9 +301,10 @@ namespace palochki
 
         private async Task UseStaminaCheck()
         {
-            const int afterBattleMinute = 8;
             var time = DateTime.Now;
-            if (Constants.AfterBattleHours.Contains(time.Hour) && time.Minute < afterBattleMinute)
+            if (Constants.AfterBattleHours.Contains(time.Hour) && time.Minute < 7)
+                return;
+            if (Constants.BattleHours.Contains(time.Hour) && time.Minute > 52)
                 return;
             if (UserInfo.StamaCountToSpend == 0)
                 return;
@@ -312,8 +322,8 @@ namespace palochki
             var waitMins = 4;
             if (Constants.NightHours.Contains(time.Hour))
                 waitMins = 6;
-            var StamaUseStarted = ParseDbDate(UserInfo.StamaUseStarted);
-            if(time<StamaUseStarted.AddMinutes(waitMins))
+            var stamaUseStarted = ParseDbDate(UserInfo.StamaUseStarted);
+            if(time<stamaUseStarted.AddMinutes(waitMins))
                 return;
             await UseStamina();
 
@@ -322,9 +332,9 @@ namespace palochki
                 botMsg.Contains("ты отправился в болото"))
             {
                 UserInfo.StamaCountToSpend--;
-                UserInfo.StamaUseStarted = AddTimeToDb(time);
-                await Program.Db.SaveChangesAsync();
             }
+            UserInfo.StamaUseStarted = AddTimeToDb(time);
+            await Program.Db.SaveChangesAsync();
             if (botMsg.Contains("подлечиться"))
             {
                 UserInfo.StamaUseStarted = AddTimeToDb(time.AddMinutes(10));
@@ -363,6 +373,7 @@ namespace palochki
             await CwBot.SendMessage(replyMsg.Message);
             var lastBotMessage = await WaitForCwBotReply();
             await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, lastBotMessage.Id);
+            Program.Logs.Add($"{User.UserName} сделал хуйню с выдачей");
         }
 
         private async Task MorningQuest()
@@ -375,6 +386,7 @@ namespace palochki
                 await UseStamina();
                 UserInfo.MorningQuest = 1;
                 await Program.Db.SaveChangesAsync();
+                Program.Logs.Add($"{User.UserName} сделал хуйню с утреним квестом");
             }
         }
 
@@ -527,6 +539,7 @@ namespace palochki
                 await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, reply.Id);
             UserInfo.LastBadRequestId = msg.Id;
             await Program.Db.SaveChangesAsync();
+            Program.Logs.Add($"{User.UserName} сделал хуйню с пином");
         }
 
         private async Task CheckControls()
@@ -622,16 +635,19 @@ namespace palochki
                         await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, botReply.Id);
 
                     Console.WriteLine($"{DateTime.Now}: {User.UserName}: репорт отправлен");
+                    Program.Logs.Add($"{User.UserName} сделал хуйню с репортом");
 
                     if (!string.IsNullOrEmpty(User.ResultsChatName))
                     {
                         Thread.Sleep(2000);
                         await CwBot.SendMessage("/g_stock_res");
+                        Thread.Sleep(3000);
                         botReply = await CwBot.GetLastMessage();
-                        Thread.Sleep(2000);
                         if (botReply.Message.Contains("Guild Warehouse"))
                         {
                             AfterBattleCounts = ParseStock(botReply.Message);
+                            var stockSize = botReply.Message.Split("Guild Warehouse: ")[1].Split('\n')[0];
+                            Program.Logs.Add($"{User.UserName} сделал хуйню с стоком после битвы {stockSize}");
                         }
 
                         if (AfterBattleCounts.Any(i => i != 0) && PreBattleCounts.Any(j => j != 0))
@@ -647,8 +663,16 @@ namespace palochki
                                 msg += $"{Constants.CwItems[i]} {sign}{change}\n";
                             }
 
-                            if(!noChanges)
+                            if (!noChanges)
+                            {
                                 await CorovansLogChat.SendMessage(msg);
+                                Program.Logs.Add($"{User.UserName} сделал хуйню с пиратсвом +");
+                            }
+                            else
+                            {
+                                Program.Logs.Add($"{User.UserName} сделал хуйню с пиратсвом -");
+                            }
+
                             for (var i = 0; i <= 38; i++)
                             {
                                 AfterBattleCounts[i] = 0;
@@ -691,7 +715,7 @@ namespace palochki
             Thread.Sleep(1000);
             await CwBot.PressButton(botReply, 0, buttonNumber);
             await WaitForCwBotReply();
-            Console.WriteLine($"{DateTime.Now}: {User.UserName}: единица стамины использована(переполнение)");
+            Program.Logs.Add($"{User.UserName} сделал хуйню с стаминой");
             await File.AppendAllTextAsync(Constants.ActionLogFile,
                 $"{DateTime.Now}\n{User.UserName} юзнул автослив стамы\n");
         }
@@ -726,6 +750,7 @@ namespace palochki
             }
 
             await File.AppendAllTextAsync(Constants.CatchesLogFileName, $"{DateTime.Now} - задержан\n");
+            Program.Logs.Add($"{User.UserName} сделал хуйню с караваном");
             Console.WriteLine($"{DateTime.Now}: {User.UserName}: пойман корован");
         }
 
@@ -781,6 +806,7 @@ namespace palochki
                     await GuildChat.SendMessage(lowHpReplies[rng.Next(0,lowHpReplies.Length-1)]);
                 }
             }
+            Program.Logs.Add($"{User.UserName} сделал хуйню с мобами");
         }
 
         private async Task HelpIfMobsNotTooBig(int lvl, TLMessage replyMsg)
@@ -837,6 +863,7 @@ namespace palochki
                 await DrinkPotions();
 
             Console.WriteLine($"{DateTime.Now}: {User.UserName}: помог с мобами");
+            Program.Logs.Add($"{User.UserName} сделал хуйню с помощью");
             await File.AppendAllTextAsync(Constants.ActionLogFile,
                 $"{DateTime.Now}\n{User.UserName} помог с мобами\n");
         }
@@ -876,6 +903,7 @@ namespace palochki
             await CwBot.SendMessage("/use_p06");
             await WaitForCwBotReply();
             await GuildChat.SendMessage("выпил зелья");
+            Program.Logs.Add($"{User.UserName} сделал хуйню с банками");
         }
 
         private async Task CheckForBattle()
@@ -899,6 +927,7 @@ namespace palochki
                         Console.WriteLine($"{DateTime.Now}: {User.UserName}: ушел в гидеф");
                         await File.AppendAllTextAsync(Constants.ActionLogFile,
                             $"{DateTime.Now}\n{User.UserName} сходил в автогидеф\n");
+                        Program.Logs.Add($"{User.UserName} сделал хуйню с гидефом");
                     }
 
                     if (!string.IsNullOrEmpty(User.ResultsChatName))
@@ -909,6 +938,8 @@ namespace palochki
                         if (botReply.Message.Contains("Guild Warehouse"))
                         {
                             PreBattleCounts = ParseStock(botReply.Message);
+                            var stockSize = botReply.Message.Split("Guild Warehouse: ")[1].Split('\n')[0];
+                            Program.Logs.Add($"{User.UserName} сделал хуйню с стоком перед битвой {stockSize}");
                         }
                     }
                     //мемнулся, /F кольцу
@@ -1020,6 +1051,7 @@ namespace palochki
             Console.WriteLine($"{DateTime.Now}: {User.UserName}: ушел на арену");
             await File.AppendAllTextAsync(Constants.ActionLogFile,
                 $"{DateTime.Now}\n{User.UserName} сходил на автоарену\n");
+            Program.Logs.Add($"{User.UserName} сделал хуйню с ареной");
             UserInfo.ArenaFightStarted = AddTimeToDb(time);
             await Program.Db.SaveChangesAsync();
         }
@@ -1074,6 +1106,7 @@ namespace palochki
                     await WaitForCwBotReply();
                 }
             }
+            Program.Logs.Add($"{User.UserName} сделал хуйню с банками алхов");
         }
     }
 }

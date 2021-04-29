@@ -12,6 +12,7 @@ namespace palochki
     internal static class Program
     {
         public static PalockiContext Db = new PalockiContext();
+        public static List<string> Logs = new List<string>();
         private static async Task Main()
         {
             Console.WriteLine("бот стартанул тип");
