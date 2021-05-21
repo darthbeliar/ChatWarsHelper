@@ -4,10 +4,6 @@ namespace palochki
 {
     internal static class Constants
     {
-        public const int TeaId = 1367374268;
-        public const long TeaHash = -2353873925669309700;
-        public const long TeaHashRat = -4395009601557975733;
-        public const long TeaHashGlimer = -6149230017004771637;
         public const string BotName = "Chat Wars 3";
         public const string ActionLogFile = "action_log_cw";
         public const string HyperionBotName = "Игра Hyperion [Beta]";
@@ -29,7 +25,6 @@ namespace palochki
         public const string HyperionSettingsFileName = "mobs_damage";
         public const string ErrorLogFileName = "ErrorsLog.txt";
         public const string CatchesLogFileName = "logCathes.txt";
-        public const string AbsendResultsChat = "none";
         public const string ReportsHeader = "Твои результаты в бою";
         public const string ForestQuestForRangers = "🌲Лес 3мин. 🔥";
         public const string ForestQuestForRangersN = "🌲Лес 5мин. 🔥";

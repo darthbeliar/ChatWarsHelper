@@ -166,7 +166,7 @@ namespace palochki
                     await Program.Db.SaveChangesAsync();
                 }
 
-                if (lastBotMsg.Message.Contains(Constants.Korovan))
+                if (lastBotMsg.Message.Contains(Constants.Korovan) && User.CorovansEnabled == 1)
                     await CatchCorovan(lastBotMsg);
 
                 if (lastBotMsg.Message.Contains(Constants.Village))
@@ -236,6 +236,9 @@ namespace palochki
             if (User.AcceptOrders == 1)
                 await CheckOrders();
 
+            await CheckStockRequest();
+            await CheckDepositRequest();
+
             if (User.UserName == "шпендаль")
             {
                 await CheckBotOrder();
@@ -244,6 +247,44 @@ namespace palochki
 
             if (User.UserName == "алух")
                 await CheckGiveOrder();
+        }
+
+        private async Task CheckDepositRequest()
+        {
+            var lastMes = (await GuildChat.GetLastMessage()).Message;
+            if(!lastMes.ToLower().Contains("положи"))
+                return;
+            var split = lastMes.Split(' ');
+            if(split.Length != 4)
+                return;
+            if(!string.Equals(split[0], User.UserName, StringComparison.CurrentCultureIgnoreCase))
+                return;
+            if(split[1].ToLower()!="положи")
+                return;
+            if(!int.TryParse(split[2],out var id) || !int.TryParse(split[3],out var count))
+                return;
+            if (User.UserName == "трунь" && id == 39)
+            {
+                await GuildChat.SendMessage("Неужели ты правда думаешь, что у труня так легко можно отнять сумак?");
+                return;
+            }
+            var realId = id > 10 ? id.ToString() : $"0{id}";
+            await CwBot.SendMessage($"/gd {realId} {count}");
+            var reply = await WaitForCwBotReply();
+            await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, reply.Id);
+        }
+
+        private async Task CheckStockRequest()
+        {
+            var lastMes = (await GuildChat.GetLastMessage()).Message;
+            if(lastMes.ToLower() != $"{User.UserName} покажи сток")
+                return;
+            await CwBot.SendMessage("/stock");
+            var reply = await WaitForCwBotReply();
+            await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, reply.Id);
+            await CwBot.SendMessage("⚗️Алхимия");
+            reply = await WaitForCwBotReply();
+            await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, reply.Id);
         }
 
         private async Task CheckHerbCommand()
@@ -550,13 +591,21 @@ namespace palochki
             {
                 case "help":
                     await SavesChat.SendMessage(
-                        "stop bot = полностью выключить бота\nstart bot = полностью включить бота\nenable arenas = включить автоарены\ndisable arenas = выключить автоарены\nenable stama = включить автослив стамины\ndisable stama = выключить автослив стамины\nenable def = включить автогидеф\ndisable def = выключить автогидеф\nbot status = состояние функций бота\ndisable potions = выключить автозелья на чемпа\nenable potions = включить автозелья на чемпа");
+                        "stop bot = полностью выключить бота\nstart bot = полностью включить бота\n" +
+                        "enable arenas = включить автоарены\ndisable arenas = выключить автоарены\n" +
+                        "enable stama = включить автослив стамины\ndisable stama = выключить автослив стамины\n" +
+                        "enable def = включить автогидеф\ndisable def = выключить автогидеф\n" +
+                        "bot status = состояние функций бота\n" +
+                        "disable potions = выключить автозелья на чемпа\nenable potions = включить автозелья на чемпа\n" +
+                        "enable corovans = включить автостоп корованов\ndisable corovans = выключить автостоп корованов");
                     await SavesChat.SendMessage(
-                        "Доп команды: \n[юзер] пин [цель] \nдай криса реплаем в чате чая \n выдай трав [x] в ботодельне");
+                        "Доп команды: \n[юзер] пин [цель] \nдай криса реплаем в чате чая \n выдай трав [x] в ботодельне \n[юзер] покажи сток \n[юзeр] положи x y");
                     break;
                 case "bot status":
                     await SavesChat.SendMessage(
-                        $"бот = {(User.BotEnabled != 1?"выключен":"включен")}\nарены = {(User.ArenasEnabled != 1?"выключены":"включены")}\nавтослив стамины = {(User.StamaEnabled != 1?"выключен":"включен")}\nавтогидеф = {(User.AutoGDefEnabled != 1?"выключен":"включен")}\nзелья на чемпа = {(User.PotionsEnabled != 1?"выключены":"включены")}");
+                        $"бот = {(User.BotEnabled != 1 ? "выключен" : "включен")}\nарены = {(User.ArenasEnabled != 1 ? "выключены" : "включены")}\n" +
+                        $"автослив стамины = {(User.StamaEnabled != 1 ? "выключен" : "включен")}\nавтогидеф = {(User.AutoGDefEnabled != 1 ? "выключен" : "включен")}" +
+                        $"\nзелья на чемпа = {(User.PotionsEnabled != 1 ? "выключены" : "включены")}\nкорованы = {(User.CorovansEnabled != 1 ? "выключены" : "включены")}");
                     break;
                 case "stop bot":
                     await SavesChat.SendMessage("Бот остановлен");
@@ -583,13 +632,17 @@ namespace palochki
                     User.StamaEnabled = 1;
                     await Program.Db.SaveChangesAsync();
                     break;
+                case "disable stama":
+                    await SavesChat.SendMessage("Автослив стамины выключен");
+                    User.StamaEnabled = 0;
+                    await Program.Db.SaveChangesAsync();
+                    break;
                 case "enable potions":
                     User.PotionsEnabled = 1;
                     await Program.Db.SaveChangesAsync();
                     break;
-                case "disable stama":
-                    await SavesChat.SendMessage("Автослив стамины выключен");
-                    User.StamaEnabled = 0;
+                case "disable potions":
+                    User.PotionsEnabled = 0;
                     await Program.Db.SaveChangesAsync();
                     break;
                 case "enable def":
@@ -602,8 +655,14 @@ namespace palochki
                     User.AutoGDefEnabled = 0;
                     await Program.Db.SaveChangesAsync();
                     break;
-                case "disable potions":
-                    User.PotionsEnabled = 0;
+                case "enable corovans":
+                    await SavesChat.SendMessage("Автостоп корованов включен");
+                    User.CorovansEnabled = 1;
+                    await Program.Db.SaveChangesAsync();
+                    break;
+                case "disable corovans":
+                    await SavesChat.SendMessage("Автогдеф корованов выключен");
+                    User.CorovansEnabled = 0;
                     await Program.Db.SaveChangesAsync();
                     break;
                 case "enable all":
@@ -612,6 +671,7 @@ namespace palochki
                     User.StamaEnabled = 1;
                     User.ArenasEnabled = 1;
                     User.PotionsEnabled = 1;
+                    User.CorovansEnabled = 1;
                     await Program.Db.SaveChangesAsync();
                     break;
             }

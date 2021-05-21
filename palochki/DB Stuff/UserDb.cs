@@ -43,6 +43,7 @@ namespace palochki.DB_Stuff
         public int AutoGDefEnabled { get; set; }
         [Column]
         public int HyperionUser { get; set; }
-
+        [Column]
+        public int CorovansEnabled { get; set; }
     }
 }
