@@ -277,7 +277,7 @@ namespace palochki
         private async Task CheckStockRequest()
         {
             var lastMes = (await GuildChat.GetLastMessage()).Message;
-            if(lastMes.ToLower() != $"{User.UserName} покажи сток")
+            if(!string.Equals(lastMes, ($"{User.UserName} покажи сток"), StringComparison.CurrentCultureIgnoreCase))
                 return;
             await CwBot.SendMessage("/stock");
             var reply = await WaitForCwBotReply();
