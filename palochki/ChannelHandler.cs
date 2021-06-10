@@ -19,8 +19,8 @@ namespace palochki
 
         public async Task<TLMessage> GetLastMessage()
         {
-            var msg = await MessageUtilities.GetLastMessage(_client, Peer,true) ?? (await GetLastMessages(10)).FirstOrDefault(m => m != null);
-            return msg;
+            return await MessageUtilities.GetLastMessage(_client, Peer, true) ??
+                   (await GetLastMessages(10)).FirstOrDefault(m => m != null);
         }
 
         public async Task<List<TLMessage>> GetLastMessages(int count)

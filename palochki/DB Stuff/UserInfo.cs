@@ -31,5 +31,7 @@ namespace palochki.DB_Stuff
         public int? LastBadRequestId { get; set; }
         [Column]
         public int? MorningQuest { get; set; }
+        [Column]
+        public int? StockEnabled { get; set; }
     }
 }

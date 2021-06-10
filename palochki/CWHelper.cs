@@ -43,10 +43,13 @@ namespace palochki
                 await ExtraUtilities.AuthClient(Client);
             }
             UserInfo = Program.Db.UserInfos.FirstOrDefault(u=>u.UserId == User.Id);
+            Console.WriteLine("search CWBOT\n\n");
             var botIdsQuery = await ExtraUtilities.GetBotIdsByName(Client, Constants.BotName);
             var botIds = botIdsQuery.Split('\t');
             CwBot = new DialogHandler(Client, Convert.ToInt32(botIds[0]), Convert.ToInt64(botIds[1]));
+            Console.WriteLine("search CWBOT done");
 
+            Console.WriteLine("search gi\n\n");
             if (User.GuildChatId != null)
             {
                 User.GuildChatName = await ExtraUtilities.GetChannelNameById(Client, User.GuildChatId);
@@ -61,6 +64,7 @@ namespace palochki
                 User.GuildChatId = int.Parse(guildChatIds[0]);
                 await Program.Db.SaveChangesAsync();
             }
+            Console.WriteLine("search gi done");
 
             var savesChatIdsQuery = await ExtraUtilities.GetBotIdsByName(Client, Client.Session.TLUser.FirstName);
             var savesChatIds = savesChatIdsQuery.Split('\t');
@@ -102,49 +106,10 @@ namespace palochki
         {
             await DoLog();
             UserInfo = await Program.Db.UserInfos.FirstOrDefaultAsync(u => u.UserId == User.Id);
-            await CheckControls();
-            if (User.BotEnabled != 1)
-                return;
-
+            await PerformFastRoutine();
+            
             var lastBotMsg = await CwBot.GetLastMessage();
             var last3BotMsgs = await CwBot.GetLastMessages(3);
-            var msgsToCheck = await GuildChat.GetLastMessages(10);
-
-            if (msgsToCheck.Any(msgToCheck =>
-                string.Compare(msgToCheck?.Message, $"{User.UserName} мобы",
-                    StringComparison.InvariantCultureIgnoreCase) ==
-                0 && !Program.Db.UserFights.Any(u=>u.FightMsgId == msgToCheck.Id && u.UserId == User.Id)))
-            {
-                var msgToCheck = msgsToCheck.First(message =>
-                    string.Compare(message?.Message, $"{User.UserName} мобы",
-                        StringComparison.InvariantCultureIgnoreCase) == 0 &&
-                    !Program.Db.UserFights.Any(u=>u.FightMsgId == message.Id && u.UserId == User.Id));
-                var newFight = new UserFight {FightMsgId = msgToCheck.Id,UserDb = User, UserId = User.Id};
-                Program.Db.UserFights.Add(newFight);
-                await Program.Db.SaveChangesAsync();
-                await HelpWithMobs(msgToCheck);
-            }
-
-            if (msgsToCheck.Any(m => m != null && m.Message.ToLower().Contains($"{User.UserName} пин".ToLower())))
-            {
-                await TrySetPin(msgsToCheck.FirstOrDefault(m => m.Message.ToLower().Contains($"{User.UserName} пин".ToLower())));
-            }
-
-            if (User.AcceptOrders == 1)
-            {
-                await CheckOrders();
-            }
-
-            if (User.UserName == "шпендаль")
-            {
-                await CheckBotOrder();
-                await CheckHerbCommand();
-            }
-
-            if (User.UserName == "алух")
-            {
-                await CheckGiveOrder();
-            }
 
             await CheckForStaminaAfterBattle();
             await CheckForBattle();
@@ -231,12 +196,11 @@ namespace palochki
                 await HelpWithMobs(msgToCheck);
             }
 
-            if (msgsToCheck.Any(m => m != null && m.Message.Contains($"{User.UserName} пин")))
-                await TrySetPin(msgsToCheck.FirstOrDefault(m => m.Message.Contains($"{User.UserName} пин")));
+            if (msgsToCheck.Any(m => m != null && m.Message.ToLower().Contains($"{User.UserName} пин".ToLower())))
+                await TrySetPin(msgsToCheck.FirstOrDefault(m => m.Message.ToLower().Contains($"{User.UserName} пин".ToLower())));
             if (User.AcceptOrders == 1)
                 await CheckOrders();
 
-            await CheckStockRequest();
             await CheckDepositRequest();
 
             if (User.UserName == "шпендаль")
@@ -246,52 +210,99 @@ namespace palochki
             }
 
             if (User.UserName == "алух")
+            {
                 await CheckGiveOrder();
+                await CheckQuestOrder();
+            }
+            await CheckTransformStockCommand();
+        }
+
+        private async Task CheckTransformStockCommand()
+        {
+            var msgToCheck = await GuildChat.GetLastMessage();
+            if (!msgToCheck.Message.ToLower().Contains($"{User.UserName} включи сдачу стока".ToLower()))
+                return;
+            var userInfos = Program.Db.UserInfos;
+            foreach (var userInfo in userInfos)
+            {
+                userInfo.StockEnabled = userInfo.UserId != User.Id ? 0 : 1;
+            }
+
+            await Program.Db.SaveChangesAsync();
+            await CwBot.SendMessage("/stock");
+            var stockItems = (await WaitForCwBotReply()).Message + "\n";
+            await CwBot.SendMessage("⚗️Алхимия");
+            stockItems += (await WaitForCwBotReply()).Message;
+            var stock = stockItems.Split('\n');
+            var message = "";
+            foreach (var stockItem in stock)
+            {
+                if(stockItem.Contains("Склад"))
+                    continue;
+                var count = stockItem.Split(" (")[1].Split(')')[0];
+                var itemId = Array.IndexOf(Constants.CwItems, stockItem.Split(" (")[0]);
+                message += $"{stockItem} /gd_{itemId}_{count}\n";
+            }
+
+            await GuildChat.SendMessage($"включаю сдачу стока");
+            Thread.Sleep(1500);
+            await GuildChat.SendMessage(message);
+            Thread.Sleep(1500);
+        }
+
+        private async Task CheckQuestOrder()
+        {
+            var msgToCheck = await GuildChat.GetLastMessage();
+            if (msgToCheck.Message.ToLower() != "сдай криса")
+                return;
+            if (msgToCheck.ReplyToMsgId == null)
+            {
+                return;
+            }
+
+            var replyMsg = await GuildChat.GetMessageById(msgToCheck.ReplyToMsgId.Value);
+            if (!replyMsg.Message.ToLower().Contains("/g_q_complete_"))
+            {
+                return;
+            }
+
+            var time = DateTime.Now;
+            if (time.DayOfWeek != DayOfWeek.Tuesday && (time.Hour > 9 || time.Hour < 8))
+                await GuildChat.SendMessage("сдача квестов работает только по вторникам с 8 до 9 по мск");
+            await CwBot.SendMessage(replyMsg.Message);
+            var lastBotMessage = await WaitForCwBotReply();
+            await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, lastBotMessage.Id);
+            Program.Logs.Add($"{User.UserName} сделал хуйню с квестом");
         }
 
         private async Task CheckDepositRequest()
         {
             var lastMes = (await GuildChat.GetLastMessage()).Message;
-            if(!lastMes.ToLower().Contains("положи"))
+            if(!lastMes.ToLower().Contains("/gd_"))
                 return;
-            var split = lastMes.Split(' ');
-            if(split.Length != 4)
-                return;
-            if(!string.Equals(split[0], User.UserName, StringComparison.CurrentCultureIgnoreCase))
-                return;
-            if(split[1].ToLower()!="положи")
-                return;
-            if(!int.TryParse(split[2],out var id) || !int.TryParse(split[3],out var count))
+            await GuildChat.SendMessage("Операция временно недоступнa, попробуйте позже");
+            return;
+            if(!int.TryParse(lastMes.Split("_")[1],out var id) || !int.TryParse(lastMes.Split("_")[2],out var count))
                 return;
             if (User.UserName == "трунь" && id == 39)
             {
                 await GuildChat.SendMessage("Неужели ты правда думаешь, что у труня так легко можно отнять сумак?");
                 return;
             }
-            var realId = id > 10 ? id.ToString() : $"0{id}";
+            var realId = id >= 10 ? id.ToString() : $"0{id}";
             await CwBot.SendMessage($"/gd {realId} {count}");
             var reply = await WaitForCwBotReply();
             await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, reply.Id);
         }
 
-        private async Task CheckStockRequest()
-        {
-            var lastMes = (await GuildChat.GetLastMessage()).Message;
-            if(!string.Equals(lastMes, ($"{User.UserName} покажи сток"), StringComparison.CurrentCultureIgnoreCase))
-                return;
-            await CwBot.SendMessage("/stock");
-            var reply = await WaitForCwBotReply();
-            await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, reply.Id);
-            await CwBot.SendMessage("⚗️Алхимия");
-            reply = await WaitForCwBotReply();
-            await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, reply.Id);
-        }
-
         private async Task CheckHerbCommand()
         {
+
             var msgToCheck = await GuildChat.GetLastMessage();
             if ((msgToCheck.Message.ToLower().Contains("выдай травы ") || msgToCheck.Message.ToLower().Contains("выдай трав ")) && msgToCheck.Message.Split(' ').Length == 3)
             {
+                await GuildChat.SendMessage("Операция временно недоступнa, попробуйте позже");
+                return;
                 if (msgToCheck.ReplyToMsgId == null)
                 {
                     await GuildChat.SendMessage("Нет реплая на травы");
@@ -436,6 +447,8 @@ namespace palochki
             var msgToCheck = await GuildChat.GetLastMessage();
             if (msgToCheck.Message.ToLower() != "в бота")
                 return;
+            await GuildChat.SendMessage("Операция временно недоступнa, попробуйте позже");
+            return;
             if (msgToCheck.ReplyToMsgId == null)
             {
                 await GuildChat.SendMessage("нужен реплай");
@@ -535,7 +548,8 @@ namespace palochki
                 await Program.Db.SaveChangesAsync();
                 return;
             }
-            
+            await GuildChat.SendMessage("Операция временно недоступнa, попробуйте позже");
+            return;
             var pin = msg.Message.Split(' ')[2];
             
             if (Constants.Castles.Contains(pin))
@@ -816,6 +830,8 @@ namespace palochki
 
         private async Task HelpWithMobs(TLMessage msgToCheck)
         {
+            await GuildChat.SendMessage("Операция временно недоступнa, попробуйте позже");
+            return;
             if (msgToCheck.ReplyToMsgId == null)
             {
                 await GuildChat.SendMessage("Нет реплая на моба");
@@ -982,7 +998,10 @@ namespace palochki
                     var botReply = await CwBot.GetLastMessage();
                     if (botReply.Message.Contains(Constants.RestedState) || botReply.Message.Contains(Constants.SmithState))
                     {
-                        await CwBot.SendMessage("/g_def");
+                        if(User.UserName == "наста")
+                            await CwBot.SendMessage("🛡Защита");
+                        else
+                            await CwBot.SendMessage("/g_def");
                         Thread.Sleep(2000);
                         Console.WriteLine($"{DateTime.Now}: {User.UserName}: ушел в гидеф");
                         await File.AppendAllTextAsync(Constants.ActionLogFile,
