@@ -92,7 +92,7 @@ namespace palochki
                             await cwHelper.PerformFastRoutine();
                             Console.WriteLine($"{DateTime.Now} Fast {i} - {cwHelper.User.UserName} OK");
                         }
-                        Thread.Sleep(2000);
+                        Thread.Sleep(1000);
                     }
 
                     foreach (var cwHelper in helpersCw)

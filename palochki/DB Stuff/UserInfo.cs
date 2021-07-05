@@ -33,5 +33,11 @@ namespace palochki.DB_Stuff
         public int? MorningQuest { get; set; }
         [Column]
         public int? StockEnabled { get; set; }
+        [Column]
+        public int? QuestType { get; set; }
+        [Column]
+        public int? IsCyberTea { get; set; }
+        [Column]
+        public string? CyberTeaOrder { get; set; }
     }
 }
