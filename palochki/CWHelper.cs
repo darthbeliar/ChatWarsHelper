@@ -188,6 +188,7 @@ namespace palochki
             if (User.BotEnabled != 1)
                 return;
             var msgsToCheck = await GuildChat.GetLastMessages(10);
+            var lastGiMsg = msgsToCheck.OrderByDescending(m => m.Date).First();
 
             if (msgsToCheck.Any(msgToCheck =>
                 string.Compare(msgToCheck?.Message, $"{User.UserName} мобы",
@@ -217,31 +218,30 @@ namespace palochki
             if (User.AcceptOrders == 1)
                 await CheckOrders();
 
-            await CheckDepositRequest();
+            await CheckDepositRequest(lastGiMsg);
 
             if (User.UserName == "шпендаль")
             {
-                await CheckBotOrder();
-                await CheckHerbCommand();
+                await CheckBotOrder(lastGiMsg);
+                await CheckHerbCommand(lastGiMsg);
             }
             
             if (User.UserName == "ефир")
             {
-                await CheckGiveOrder();
-                await CheckBotOrder();
+                await CheckGiveOrder(lastGiMsg);
+                await CheckBotOrder(lastGiMsg);
                 //await CheckQuestOrder();
             }
             
             if (User.UserName == "глимер")
             {
-                await CheckGiveOrder(true);
+                await CheckGiveOrder(lastGiMsg,true);
             }
-            await CheckTransformStockCommand();
+            await CheckTransformStockCommand(lastGiMsg);
         }
 
-        private async Task CheckTransformStockCommand()
+        private async Task CheckTransformStockCommand(TLMessage msgToCheck)
         {
-            var msgToCheck = await GuildChat.GetLastMessage();
             if (!msgToCheck.Message.ToLower().Contains($"{User.UserName} включи сдачу стока".ToLower()))
                 return;
             var userInfos = Program.Db.UserInfos;
@@ -297,9 +297,8 @@ namespace palochki
             Program.Logs.Add($"{User.UserName} сделал хуйню с квестом");
         }
 
-        private async Task CheckDepositRequest()
+        private async Task CheckDepositRequest(TLMessage msgToCheck)
         {
-            var msgToCheck = await GuildChat.GetLastMessage();
             var lastMes = msgToCheck.Message;
             if(!lastMes.ToLower().Contains("/gd_"))
                 return;
@@ -319,10 +318,8 @@ namespace palochki
             await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, reply.Id);
         }
 
-        private async Task CheckHerbCommand()
+        private async Task CheckHerbCommand(TLMessage msgToCheck)
         {
-
-            var msgToCheck = await GuildChat.GetLastMessage();
             if ((msgToCheck.Message.ToLower().Contains("выдай травы ") || msgToCheck.Message.ToLower().Contains("выдай трав ")) && msgToCheck.Message.Split(' ').Length == 3)
             {
                 if (msgToCheck.ReplyToMsgId == null)
@@ -396,6 +393,8 @@ namespace palochki
             var waitMins = 4;
             if (Constants.NightHours.Contains(time.Hour))
                 waitMins = 6;
+            if (UserInfo.QuestType == 4)
+                waitMins += 2;
             var stamaUseStarted = ParseDbDate(UserInfo.StamaUseStarted);
             if(time<stamaUseStarted.AddMinutes(waitMins))
                 return;
@@ -427,10 +426,8 @@ namespace palochki
             return new DateTime(int.Parse(split[0]),int.Parse(split[1]),int.Parse(split[2]),int.Parse(split[3]),int.Parse(split[4]),int.Parse(split[5]));
         }
 
-        private async Task CheckGiveOrder(bool alch = false)
+        private async Task CheckGiveOrder(TLMessage msgToCheck,bool alch = false)
         {
-            var msgToCheck = await GuildChat.GetLastMessage();
-
             if (msgToCheck.Message.ToLower() != "дай ефир" && msgToCheck.Message.ToLower() != "налей глимер")
                 return;
             switch (msgToCheck.Message.ToLower())
@@ -472,9 +469,8 @@ namespace palochki
             }
         }
 
-        private async Task CheckBotOrder()
+        private async Task CheckBotOrder(TLMessage msgToCheck)
         {
-            var msgToCheck = await GuildChat.GetLastMessage();
             if (msgToCheck.Message.ToLower() != "в бота")
                 return;
             if (msgToCheck.ReplyToMsgId == null)
