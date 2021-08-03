@@ -11,12 +11,12 @@ namespace palochki
 {
     internal static class Program
     {
-        public static PalockiContext Db = new PalockiContext();
-        public static List<string> Logs = new List<string>();
+        public static readonly PalockiContext Db = new PalockiContext();
+        public static readonly List<string> Logs = new List<string>();
         private static async Task Main()
         {
             Console.WriteLine("бот стартанул тип");
-            var helpersCw = await PrepareHelpersCw(Db);
+            var helpersCw = await PrepareHelpersCw();
             //var helpersHyp = await PrepareHelpersHyp(helpersCw);
             try
             {
@@ -54,15 +54,11 @@ namespace palochki
             }
         }
         */
-        private static async Task<List<CwHelper>> PrepareHelpersCw(PalockiContext dB)
+        private static async Task<List<CwHelper>> PrepareHelpersCw()
         {
             try
             {
-                var helpersCw = new List<CwHelper>();
-                foreach (var user in Db.DbUsers)
-                {
-                    helpersCw.Add(new CwHelper(user));
-                }
+                var helpersCw = Db.DbUsers.Select(user => new CwHelper(user)).ToList();
                 foreach (var cwHelper in helpersCw)
                 {
                     await cwHelper.InitHelper();

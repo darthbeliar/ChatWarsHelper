@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace palochki.DB_Stuff
 {
     [Table("UserInfo")]
-    public class UserInfo
+    public abstract class UserInfo
     {
         [Key]
         [ForeignKey("UserDb")]

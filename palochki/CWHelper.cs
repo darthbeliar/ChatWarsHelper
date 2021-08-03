@@ -16,16 +16,16 @@ namespace palochki
     {
         private int _logClock;
         public UserDb User { get; }
-        public UserInfo UserInfo { get; set; }
+        private UserInfo UserInfo { get; set; }
         public TelegramClient Client { get; }
-        public DialogHandler CwBot { get; set; }
-        public DialogHandler SavesChat { get; set; }
-        public DialogHandler OrdersChat { get; set; }
-        public ChannelHandler GuildChat { get; set; }
-        public ChannelHandler LogChat { get; set; }
-        public ChannelHandler CorovansLogChat { get; set; }
-        public List<int> PreBattleCounts = new List<int>(39);
-        public List<int> AfterBattleCounts = new List<int>(39);
+        private DialogHandler CwBot { get; set; }
+        private DialogHandler SavesChat { get; set; }
+        private DialogHandler OrdersChat { get; set; }
+        private ChannelHandler GuildChat { get; set; }
+        public ChannelHandler LogChat { get; private set; }
+        private ChannelHandler CorovansLogChat { get; set; }
+        private List<int> _preBattleCounts = new List<int>(39);
+        private List<int> _afterBattleCounts = new List<int>(39);
 
         public CwHelper(UserDb user)
         {
@@ -43,13 +43,11 @@ namespace palochki
                 await ExtraUtilities.AuthClient(Client);
             }
             UserInfo = Program.Db.UserInfos.FirstOrDefault(u=>u.UserId == User.Id);
-            Console.WriteLine("search CWBOT\n\n");
+
             var botIdsQuery = await ExtraUtilities.GetBotIdsByName(Client, Constants.BotName);
             var botIds = botIdsQuery.Split('\t');
             CwBot = new DialogHandler(Client, Convert.ToInt32(botIds[0]), Convert.ToInt64(botIds[1]));
-            Console.WriteLine("search CWBOT done");
 
-            Console.WriteLine("search gi\n\n");
             if (User.GuildChatId != null)
             {
                 User.GuildChatName = await ExtraUtilities.GetChannelNameById(Client, User.GuildChatId);
@@ -64,7 +62,6 @@ namespace palochki
                 User.GuildChatId = int.Parse(guildChatIds[0]);
                 await Program.Db.SaveChangesAsync();
             }
-            Console.WriteLine("search gi done");
 
             var savesChatIdsQuery = await ExtraUtilities.GetBotIdsByName(Client, Client.Session.TLUser.FirstName);
             var savesChatIds = savesChatIdsQuery.Split('\t');
@@ -87,8 +84,8 @@ namespace palochki
 
             for (var i = 0; i <= 38; i++)
             {
-                AfterBattleCounts.Add(0);
-                PreBattleCounts.Add(0);
+                _afterBattleCounts.Add(0);
+                _preBattleCounts.Add(0);
             }
 
             if (User.UserName == "трунь")
@@ -288,35 +285,10 @@ namespace palochki
                 message += $"{stockItem} /gd_{itemId}_{count}\n";
             }
 
-            await GuildChat.SendMessage($"включаю сдачу стока");
+            await GuildChat.SendMessage("включаю сдачу стока");
             Thread.Sleep(1500);
             await GuildChat.SendMessage(message);
             Thread.Sleep(1500);
-        }
-
-        private async Task CheckQuestOrder()
-        {
-            var msgToCheck = await GuildChat.GetLastMessage();
-            if (msgToCheck.Message.ToLower() != "сдай криса")
-                return;
-            if (msgToCheck.ReplyToMsgId == null)
-            {
-                return;
-            }
-
-            var replyMsg = await GuildChat.GetMessageById(msgToCheck.ReplyToMsgId.Value);
-            if (!replyMsg.Message.ToLower().Contains("/g_q_complete_"))
-            {
-                return;
-            }
-
-            var time = DateTime.Now;
-            if (time.DayOfWeek != DayOfWeek.Tuesday && (time.Hour > 9 || time.Hour < 8))
-                await GuildChat.SendMessage("сдача квестов работает только по вторникам с 8 до 9 по мск");
-            await CwBot.SendMessage(replyMsg.Message);
-            var lastBotMessage = await WaitForCwBotReply();
-            await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, lastBotMessage.Id);
-            Program.Logs.Add($"{User.UserName} сделал хуйню с квестом");
         }
 
         private async Task CheckDepositRequest(TLMessage msgToCheck)
@@ -437,12 +409,12 @@ namespace palochki
             }
         }
 
-        private string AddTimeToDb(in DateTime time)
+        private static string AddTimeToDb(in DateTime time)
         {
             return $"{time.Year} {time.Month} {time.Day} {time.Hour} {time.Minute} {time.Second}";
         }
 
-        private DateTime ParseDbDate(string? userInfoStamaUseStarted)
+        private static DateTime ParseDbDate(string userInfoStamaUseStarted)
         {
             var split = userInfoStamaUseStarted.Split(' ');
             return new DateTime(int.Parse(split[0]),int.Parse(split[1]),int.Parse(split[2]),int.Parse(split[3]),int.Parse(split[4]),int.Parse(split[5]));
@@ -589,7 +561,7 @@ namespace palochki
                 await CwBot.SendMessage("/use_p02");
                 reply = await WaitForCwBotReply();
                 await MessageUtilities.ForwardMessage(Client, CwBot.Peer, OrdersChat.Peer, reply.Id);
-                await CwBot.SendMessage("/use_p03"); ;
+                await CwBot.SendMessage("/use_p03");
                 reply = await WaitForCwBotReply();
                 await MessageUtilities.ForwardMessage(Client, CwBot.Peer, OrdersChat.Peer, reply.Id);
             }
@@ -861,18 +833,18 @@ namespace palochki
                         botReply = await CwBot.GetLastMessage();
                         if (botReply.Message.Contains("Guild Warehouse"))
                         {
-                            AfterBattleCounts = ParseStock(botReply.Message);
+                            _afterBattleCounts = ParseStock(botReply.Message);
                             var stockSize = botReply.Message.Split("Guild Warehouse: ")[1].Split('\n')[0];
                             Program.Logs.Add($"{User.UserName} сделал хуйню с стоком после битвы {stockSize}");
                         }
 
-                        if (AfterBattleCounts.Any(i => i != 0) && PreBattleCounts.Any(j => j != 0))
+                        if (_afterBattleCounts.Any(i => i != 0) && _preBattleCounts.Any(j => j != 0))
                         {
                             var msg = "Изменения в стоке\n";
                             var noChanges = true;
                             for (var i = 1; i <= 38; i++)
                             {
-                                var change = AfterBattleCounts[i] - PreBattleCounts[i];
+                                var change = _afterBattleCounts[i] - _preBattleCounts[i];
                                 if (change == 0) continue;
                                 noChanges = false;
                                 var sign = change > 0 ? "+" : "";
@@ -891,8 +863,8 @@ namespace palochki
 
                             for (var i = 0; i <= 38; i++)
                             {
-                                AfterBattleCounts[i] = 0;
-                                PreBattleCounts[i] = 0;
+                                _afterBattleCounts[i] = 0;
+                                _preBattleCounts[i] = 0;
                             }
                         }
                     }
@@ -1180,7 +1152,7 @@ namespace palochki
                         botReply = await CwBot.GetLastMessage();
                         if (botReply.Message.Contains("Guild Warehouse"))
                         {
-                            PreBattleCounts = ParseStock(botReply.Message);
+                            _preBattleCounts = ParseStock(botReply.Message);
                             var stockSize = botReply.Message.Split("Guild Warehouse: ")[1].Split('\n')[0];
                             Program.Logs.Add($"{User.UserName} сделал хуйню с стоком перед битвой {stockSize}");
                         }
@@ -1203,6 +1175,7 @@ namespace palochki
             }
         }
 
+        // ReSharper disable once UnusedMember.Local мб кольцо вернут и буду снова юзать FeelsOkayMan
         private async Task CheckRing(string ringname)
         {
             var atk = false;
