@@ -67,6 +67,17 @@ namespace palochki
             await client.SendMessageAsync(peer, text);
         }
 
+        public static async Task ReplyToMsg(TelegramClient client, TLAbsInputPeer peer, string text, int msgId)
+        {
+            var send = new TLRequestSendMessage
+            {
+                Peer = peer,
+                Message = text,
+                ReplyToMsgId = msgId
+            };
+            await client.SendRequestAsync<TLRequestSendMessage>(send);
+        }
+
         public static async Task PressButton(TelegramClient client,TLAbsInputPeer peer,TLMessage message, int row, int button)
         {
             var buttons = message.ReplyMarkup as TLReplyInlineMarkup;

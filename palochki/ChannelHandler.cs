@@ -37,5 +37,10 @@ namespace palochki
         {
             await MessageUtilities.SendMessage(_client, Peer, text);
         }
+
+        public async Task ReplyToMsg(string text, int msgId)
+        {
+            await MessageUtilities.ReplyToMsg(_client, Peer, text, msgId);
+        }
     }
 }

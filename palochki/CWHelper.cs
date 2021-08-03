@@ -107,6 +107,8 @@ namespace palochki
             await DoLog();
             UserInfo = await Program.Db.UserInfos.FirstOrDefaultAsync(u => u.UserId == User.Id);
             await PerformFastRoutine();
+            if(User.BotEnabled != 1)
+                return;
             
             var lastBotMsg = await CwBot.GetLastMessage();
             var last3BotMsgs = await CwBot.GetLastMessages(3);
@@ -219,6 +221,10 @@ namespace palochki
                 await CheckOrders();
 
             await CheckDepositRequest(lastGiMsg);
+            if (User.UserName == "трунь")
+            {
+                await CheckForBolodyaOrder(lastGiMsg);
+            }
 
             if (User.UserName == "шпендаль")
             {
@@ -238,6 +244,22 @@ namespace palochki
                 await CheckGiveOrder(lastGiMsg,true);
             }
             await CheckTransformStockCommand(lastGiMsg);
+        }
+
+        private async Task CheckForBolodyaOrder(TLMessage lastGiMsg)
+        {
+            if (lastGiMsg.Message.Contains("Монстры встречены @MaxIliuchin:"))
+                lastGiMsg = (await GuildChat.GetLastMessages(3)).FirstOrDefault(m =>
+                    m.FromId == 661651637 && m.Message.ToLower().Contains("fight") &&
+                    m.Message.ToLower().Contains("iliukhin"));
+            if(lastGiMsg == null)
+                return;
+            if (lastGiMsg.FromId == 661651637 && lastGiMsg.Message.ToLower().Contains("fight") &&
+                lastGiMsg.Message.ToLower().Contains("iliukhin"))
+            {
+                await GuildChat.ReplyToMsg("/bol_go", lastGiMsg.Id);
+            }
+
         }
 
         private async Task CheckTransformStockCommand(TLMessage msgToCheck)
@@ -639,6 +661,14 @@ namespace palochki
 
         private async Task ExecuteOrder(string pin,bool personalOrder)
         {
+            await CwBot.SendMessage(Constants.HeroCommand);
+            var hero = await WaitForCwBotReply();
+            if(await CheckAim(hero))
+                return;
+            if (hero.Message.Contains("pin"))
+            {
+                await GuildChat.SendMessage("уже встал туда");
+            }
             if (Constants.Castles.Contains(pin))
             {
                 var attackWord2 = new char[6];
@@ -696,7 +726,8 @@ namespace palochki
                         "enable corovans = включить автостоп корованов\ndisable corovans = выключить автостоп корованов" +
                         "\nset autoquest x, 1 = лес, 2 = болото, 3 = долина, 4 = корованы");
                     await SavesChat.SendMessage(
-                        "Доп команды: \n[юзер] пин [цель] \nдай криса реплаем в чате чая \n выдай трав [x] в ботодельне \n[юзер] покажи сток \n[юзeр] положи x y");
+                        "Доп команды: \n киберчай пин [цель]\n[юзер] пин [цель] \nвыдача итемов: дай ефир(сток)/налей глимер(зелья) реплаем в чате чая " +
+                        "\n выдай трав [x] в ботодельне \n[юзер] покажи сток \n[юзeр] положи x y");
                     break;
                 case "bot status":
                     await SavesChat.SendMessage(
@@ -959,6 +990,15 @@ namespace palochki
             Console.WriteLine($"{DateTime.Now}: {User.UserName}: пойман корован");
         }
 
+        private async Task<bool> CheckAim(TLMessage botMessage)
+        {
+            if (!botMessage.Message.Contains("🎯")) return false;
+
+            var aimMes = botMessage.Message.Split("Состояние:")[1].Split("Подробнее")[0];
+            await GuildChat.SendMessage($"не могу, в аиме\n{aimMes}");
+            return true;
+        }
+
         private async Task HelpWithMobs(TLMessage msgToCheck)
         {
             if (msgToCheck.ReplyToMsgId == null)
@@ -988,12 +1028,7 @@ namespace palochki
             var maxHp = lastBotMessage.Message.Split("❤️Здоровье: ")[1].Split('/')[1].Split('\n')[0];
             var coef = double.Parse(hp) / double.Parse(maxHp);
 
-            if (lastBotMessage.Message.Contains("🎯"))
-            {
-                var aimMes = lastBotMessage.Message.Split("Состояние:")[1].Split("Подробнее")[0];
-                await GuildChat.SendMessage($"не могу, в аиме\n{aimMes}");
-                return;
-            }
+            await CheckAim(lastBotMessage);
 
             if (coef > 0.4 &&
                 int.TryParse(lastBotMessage.Message.Split("Уровень: ")[1].Substring(0, 2), out var lvl))
