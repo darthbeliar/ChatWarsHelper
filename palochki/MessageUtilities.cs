@@ -69,11 +69,13 @@ namespace palochki
 
         public static async Task ReplyToMsg(TelegramClient client, TLAbsInputPeer peer, string text, int msgId)
         {
+            var randomId = TLSharp.Core.Utils.Helpers.GenerateRandomLong();
             var send = new TLRequestSendMessage
             {
                 Peer = peer,
                 Message = text,
-                ReplyToMsgId = msgId
+                ReplyToMsgId = msgId,
+                RandomId = randomId
             };
             await client.SendRequestAsync<TLRequestSendMessage>(send);
         }

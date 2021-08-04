@@ -11,8 +11,8 @@ namespace palochki
 {
     internal static class Program
     {
-        public static readonly PalockiContext Db = new PalockiContext();
-        public static readonly List<string> Logs = new List<string>();
+        public static PalockiContext Db = new PalockiContext();
+        public static List<string> Logs = new List<string>();
         private static async Task Main()
         {
             Console.WriteLine("бот стартанул тип");
@@ -58,7 +58,11 @@ namespace palochki
         {
             try
             {
-                var helpersCw = Db.DbUsers.Select(user => new CwHelper(user)).ToList();
+                var helpersCw = new List<CwHelper>();
+                foreach (var user in Db.DbUsers)
+                {
+                    helpersCw.Add(new CwHelper(user));
+                }
                 foreach (var cwHelper in helpersCw)
                 {
                     await cwHelper.InitHelper();

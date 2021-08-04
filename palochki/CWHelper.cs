@@ -26,6 +26,7 @@ namespace palochki
         private ChannelHandler CorovansLogChat { get; set; }
         private List<int> _preBattleCounts = new List<int>(39);
         private List<int> _afterBattleCounts = new List<int>(39);
+        private int lastReplyMsgId;
 
         public CwHelper(UserDb user)
         {
@@ -186,15 +187,16 @@ namespace palochki
             await CheckControls();
             if (User.BotEnabled != 1)
                 return;
-            var msgsToCheck = await GuildChat.GetLastMessages(10);
-            var lastGiMsg = msgsToCheck.OrderByDescending(m => m.Date).First();
+            var msgsToCheck = (await GuildChat.GetLastMessages(10)).Where(m=>m != null);
+            var tlMessages = msgsToCheck.ToList();
+            var lastGiMsg = tlMessages.OrderByDescending(m => m.Date).First();
 
-            if (msgsToCheck.Any(msgToCheck =>
+            if (tlMessages.Any(msgToCheck =>
                 string.Compare(msgToCheck?.Message, $"{User.UserName} мобы",
                     StringComparison.InvariantCultureIgnoreCase) ==
                 0 && !Program.Db.UserFights.Any(u=>u.FightMsgId == msgToCheck.Id && u.UserId == User.Id)))
             {
-                var msgToCheck = msgsToCheck.First(message =>
+                var msgToCheck = tlMessages.First(message =>
                     string.Compare(message?.Message, $"{User.UserName} мобы",
                         StringComparison.InvariantCultureIgnoreCase) == 0 &&
                     !Program.Db.UserFights.Any(u=>u.FightMsgId == message.Id && u.UserId == User.Id));
@@ -204,10 +206,10 @@ namespace palochki
                 await HelpWithMobs(msgToCheck);
             }
 
-            if (msgsToCheck.Any(m => m != null && m.Message.ToLower().Contains($"{User.UserName} пин".ToLower())))
-                await TrySetPin(msgsToCheck.FirstOrDefault(m => m.Message.ToLower().Contains($"{User.UserName} пин".ToLower())));
-            if (msgsToCheck.Any(m => m != null && m.Message.ToLower().Contains("киберчай пин")))
-                await TryGlobalSetPin(msgsToCheck.FirstOrDefault(m => m.Message.ToLower().Contains("киберчай пин")));
+            if (tlMessages.Any(m => m != null && m.Message.ToLower().Contains($"{User.UserName} пин".ToLower())))
+                await TrySetPin(tlMessages.FirstOrDefault(m => m.Message.ToLower().Contains($"{User.UserName} пин".ToLower())));
+            if (tlMessages.Any(m => m != null && m.Message.ToLower().Contains("киберчай пин")))
+                await TryGlobalSetPin(tlMessages.FirstOrDefault(m => m.Message.ToLower().Contains("киберчай пин")));
             if (UserInfo.CyberTeaOrder != null)
             {
                 await ExecuteOrder(UserInfo.CyberTeaOrder,false);
@@ -249,12 +251,13 @@ namespace palochki
                 lastGiMsg = (await GuildChat.GetLastMessages(3)).FirstOrDefault(m =>
                     m.FromId == 661651637 && m.Message.ToLower().Contains("fight") &&
                     m.Message.ToLower().Contains("iliukhin"));
-            if(lastGiMsg == null)
+            if(lastGiMsg == null || lastGiMsg.Id == lastReplyMsgId)
                 return;
             if (lastGiMsg.FromId == 661651637 && lastGiMsg.Message.ToLower().Contains("fight") &&
                 lastGiMsg.Message.ToLower().Contains("iliukhin"))
             {
                 await GuildChat.ReplyToMsg("/bol_go", lastGiMsg.Id);
+                lastReplyMsgId = lastGiMsg.Id;
             }
 
         }
