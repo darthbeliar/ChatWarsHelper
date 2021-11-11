@@ -940,6 +940,9 @@ namespace palochki
                         buttonNumber = 0;
                         rowId = 1;
                         break;
+                    default:
+                        buttonNumber = 2;
+                        break;
                 }
             }
             Thread.Sleep(1000);
