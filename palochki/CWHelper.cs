@@ -27,6 +27,7 @@ namespace palochki
         private List<int> _preBattleCounts = new List<int>(39);
         private List<int> _afterBattleCounts = new List<int>(39);
         private int lastReplyMsgId;
+        private int lastGlobalPin;
 
         public CwHelper(UserDb user)
         {
@@ -130,7 +131,7 @@ namespace palochki
                 }
                 if (lastBotMsg.Message.Contains(Constants.Stama))
                 {
-                    const int afterBattleMinute = 8;
+                    const int afterBattleMinute = 14;
                     var time = DateTime.Now;
                     if (Constants.AfterBattleHours.Contains(time.Hour) && time.Minute < afterBattleMinute)
                         return;
@@ -243,15 +244,30 @@ namespace palochki
                 await CheckGiveOrder(lastGiMsg,true);
             }
             await CheckTransformStockCommand(lastGiMsg);
+            await CheckSpecialAbility(lastGiMsg);
+        }
+
+        private async Task CheckSpecialAbility(TLMessage lastGiMsg)
+        {
+            if (lastGiMsg.Message.Contains("/use") && lastGiMsg.Message.ToLower().Contains(User.UserName))
+            {
+                if (lastGiMsg.Message.Contains("/use_cry"))
+                    await CwBot.SendMessage("/use_cry");
+                if (lastGiMsg.Message.Contains("/use_tnt"))
+                    await CwBot.SendMessage("/use_tnt");
+                if (lastGiMsg.Message.Contains("/use_crl"))
+                    await CwBot.SendMessage("/use_crl");
+                var reply = await WaitForCwBotReply();
+                await GuildChat.SendMessage(reply.Message);
+            }
         }
 
         private async Task CheckForBolodyaOrder(TLMessage lastGiMsg)
         {
-            if (lastGiMsg.Message.Contains("Монстры встречены @MaxIliuchin:"))
-                lastGiMsg = (await GuildChat.GetLastMessages(3)).FirstOrDefault(m =>
-                    m.FromId == 661651637 && m.Message.ToLower().Contains("fight") &&
-                    m.Message.ToLower().Contains("iliukhin"));
             if(lastGiMsg == null || lastGiMsg.Id == lastReplyMsgId)
+                return;
+            var now = DateTime.Now;
+            if(Constants.BattleHours.Contains(now.Hour))
                 return;
             if (lastGiMsg.FromId == 661651637 && lastGiMsg.Message.ToLower().Contains("fight") &&
                 lastGiMsg.Message.ToLower().Contains("iliukhin"))
@@ -259,7 +275,6 @@ namespace palochki
                 await GuildChat.ReplyToMsg("/bol_go", lastGiMsg.Id);
                 lastReplyMsgId = lastGiMsg.Id;
             }
-
         }
 
         private async Task CheckTransformStockCommand(TLMessage msgToCheck)
@@ -576,7 +591,7 @@ namespace palochki
 
         private async Task TryGlobalSetPin(TLMessage msg)
         {
-            if(User.UserName != "трунь" || msg.Id == UserInfo.LastBadRequestId)
+            if(User.UserName != "трунь" || msg.Id == UserInfo.LastBadRequestId || lastGlobalPin == msg.Id)
                 return;
             var parsed = msg.Message.Split(' ');
 
@@ -605,6 +620,7 @@ namespace palochki
                 userInfo.CyberTeaOrder = pin;
             }
             await Program.Db.SaveChangesAsync();
+            lastGlobalPin = msg.Id;
             Program.Logs.Add($"{User.UserName} сделал хуйню с массовым пином");
         }
         private async Task TrySetPin(TLMessage msg,bool personalOrder = false)
@@ -612,6 +628,7 @@ namespace palochki
             if(msg.Id == UserInfo.LastBadRequestId)
                 return;
             var parsed = msg.Message.Split(' ');
+            var isStrong = msg.Message.Contains('!');
 
             if (parsed.Length != 3)
             {
@@ -626,7 +643,7 @@ namespace palochki
             }
 
             var pin = msg.Message.Split(' ')[2];
-            await ExecuteOrder(pin, personalOrder);
+            await ExecuteOrder(pin, personalOrder,isStrong);
             
 
             UserInfo.LastBadRequestId = msg.Id;
@@ -634,11 +651,11 @@ namespace palochki
             Program.Logs.Add($"{User.UserName} сделал хуйню с пином");
         }
 
-        private async Task ExecuteOrder(string pin,bool personalOrder)
+        private async Task ExecuteOrder(string pin,bool personalOrder,bool isStrong = false)
         {
             await CwBot.SendMessage(Constants.HeroCommand);
             var hero = await WaitForCwBotReply();
-            if(await CheckAim(hero))
+            if(!isStrong && await CheckAim(hero))
                 return;
             if (hero.Message.Contains("pin"))
             {
@@ -813,7 +830,7 @@ namespace palochki
             
             if (User.StamaEnabled != 1)
                 return;
-            const int afterBattleMinute = 8;
+            const int afterBattleMinute = 14;
             var time = DateTime.Now;
             if (Constants.AfterBattleHours.Contains(time.Hour) && time.Minute == afterBattleMinute)
             {
@@ -899,12 +916,14 @@ namespace palochki
             await CwBot.SendMessage(Constants.QuestsCommand);
             var rowId = 0;
             var botReply = await WaitForCwBotReply();
-            var buttonNumber = 2;
+            var buttonNumber = -1;
             if (botReply.Message.Contains(Constants.ForestQuestForRangers) || botReply.Message.Contains(Constants.ForestQuestForRangersN))
                 buttonNumber = 0;
             if (botReply.Message.Contains(Constants.SwampQuestForRangers) || botReply.Message.Contains(Constants.SwampQuestForRangersN))
                 buttonNumber = 1;
-            if (buttonNumber == 2 || User.UserName == "ефир")
+            if (botReply.Message.Contains(Constants.RockQuestForRangers) || botReply.Message.Contains(Constants.RockQuestForRangersN))
+                buttonNumber = 2;
+            if (buttonNumber == -1 || User.UserName == "ефир")  
             {
                 switch (UserInfo.QuestType)
                 {

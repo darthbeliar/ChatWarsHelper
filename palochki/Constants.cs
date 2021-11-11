@@ -27,7 +27,9 @@
         public const string ForestQuestForRangers = "🌲Лес 3мин. 🔥";
         public const string ForestQuestForRangersN = "🌲Лес 5мин. 🔥";
         public const string SwampQuestForRangers = "🍄Болото 4мин. 🔥";
+        public const string RockQuestForRangers = "🏔Горная долина 4мин. 🔥";
         public const string SwampQuestForRangersN = "🍄Болото 6мин. 🔥";
+        public const string RockQuestForRangersN = "🏔Горная долина 6мин. 🔥";
         public const int CwBotId = 265204902;
         public static readonly string[] Castles = {"🍁", "🍆", "☘️", "🦇", "🌹", "🖤", "🐢"};
         public static readonly int[] NightHours = {7,8,15,16,23,0};
