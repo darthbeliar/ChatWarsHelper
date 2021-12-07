@@ -131,7 +131,7 @@ namespace palochki
                 }
                 if (lastBotMsg.Message.Contains(Constants.Stama))
                 {
-                    const int afterBattleMinute = 14;
+                    const int afterBattleMinute = 7;
                     var time = DateTime.Now;
                     if (Constants.AfterBattleHours.Contains(time.Hour) && time.Minute < afterBattleMinute)
                         return;
@@ -221,11 +221,12 @@ namespace palochki
                 await CheckOrders();
 
             await CheckDepositRequest(lastGiMsg);
+            /*
             if (User.UserName == "трунь")
             {
                 await CheckForBolodyaOrder(lastGiMsg);
             }
-
+            */
             if (User.UserName == "шпендаль")
             {
                 await CheckBotOrder(lastGiMsg);
@@ -830,7 +831,7 @@ namespace palochki
             
             if (User.StamaEnabled != 1)
                 return;
-            const int afterBattleMinute = 14;
+            const int afterBattleMinute = 7;
             var time = DateTime.Now;
             if (Constants.AfterBattleHours.Contains(time.Hour) && time.Minute == afterBattleMinute)
             {
