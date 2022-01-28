@@ -211,6 +211,8 @@ namespace palochki
                 await TrySetPin(tlMessages.FirstOrDefault(m => m.Message.ToLower().Contains($"{User.UserName} пин".ToLower())));
             if (tlMessages.Any(m => m != null && m.Message.ToLower().Contains("киберчай пин")))
                 await TryGlobalSetPin(tlMessages.FirstOrDefault(m => m.Message.ToLower().Contains("киберчай пин")));
+            if (tlMessages.Any(m => m != null && m.Message.ToLower().Contains($"{User.UserName} бухни".ToLower())))
+                await TryBuhloOrder(tlMessages.FirstOrDefault(m => m.Message.ToLower().Contains($"{User.UserName} бухни".ToLower())));
             if (UserInfo.CyberTeaOrder != null)
             {
                 await ExecuteOrder(UserInfo.CyberTeaOrder,false);
@@ -231,12 +233,15 @@ namespace palochki
             {
                 await CheckBotOrder(lastGiMsg);
                 await CheckHerbCommand(lastGiMsg);
+                await CheckFragsCommand(lastGiMsg);
+                await CheckCraftCommand(lastGiMsg);
             }
             
             if (User.UserName == "ефир")
             {
                 await CheckGiveOrder(lastGiMsg);
                 await CheckBotOrder(lastGiMsg);
+                await CheckCraftGiveOrder();
                 //await CheckQuestOrder();
             }
             
@@ -246,6 +251,49 @@ namespace palochki
             }
             await CheckTransformStockCommand(lastGiMsg);
             await CheckSpecialAbility(lastGiMsg);
+        }
+
+        private async Task CheckCraftGiveOrder()
+        {
+            if(!Program.waitingForResourcesForCraft) return;
+            var withdrawCommand = "/g_withdraw";
+            for (int i = 0; i < Program.resourcesNeededIds.Count; i++)
+            {
+                var id = Program.resourcesNeededIds[i] > 9
+                    ? Program.resourcesNeededIds[i].ToString()
+                    : $"0{Program.resourcesNeededIds[i]}";
+                withdrawCommand += $" {id} {Program.resourcesNeededCounts[i]}";
+            }
+
+            await CwBot.SendMessage(withdrawCommand);
+            var reply = await WaitForCwBotReply();
+
+            if (reply.Message.Contains("Not enough items"))
+            {
+                await CwBot.SendMessage("/g_stock_res");
+                reply = await WaitForCwBotReply();
+                var result = "не хватило итемов:\n";
+                var stockInfo = ParseStock(reply.Message);
+                for (int i = 0; i < Program.resourcesNeededCounts.Count; i++)
+                {
+                    var currentResCount = stockInfo[Program.resourcesNeededIds[i]];
+                    if (currentResCount < Program.resourcesNeededCounts[i])
+                    {
+                        result +=
+                            $"{Constants.CwItems[Program.resourcesNeededIds[i]]}-{Program.resourcesNeededCounts[i] - currentResCount}|";
+                    }
+                }
+
+                Program.withdrawResult = result.Remove(result.Length - 1);
+                return;
+            }
+
+            if (reply.Message.Contains("Withdrawing"))
+            {
+                Program.withdrawResult = reply.Message;
+                return;
+            }
+            Program.withdrawResult = "занят";
         }
 
         private async Task CheckSpecialAbility(TLMessage lastGiMsg)
@@ -331,6 +379,99 @@ namespace palochki
             await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, reply.Id);
         }
 
+        private async Task CheckCraftCommand(TLMessage msgToCheck)
+        {
+            if (Program.waitingForResourcesForCraft)
+            {
+                if(string.IsNullOrEmpty(Program.withdrawResult)) return;
+                if (Program.withdrawResult == "занят")
+                {
+                    await GuildChat.SendMessage("не получилось подрезать ресы, ефир был занят");
+                    ResetGlobals();
+                    return;
+                }
+
+                if (Program.withdrawResult.Contains("не хватило итемов"))
+                {
+                    var items = Program.withdrawResult.Split("\n")[1].Split('|');
+                    var message = items.Aggregate("в стоке не хватает итемов:\n", (current, item) => current + $"{item}\n");
+                    await GuildChat.SendMessage(message);
+                    ResetGlobals();
+                    return;
+                }
+
+                if (Program.withdrawResult.Contains("Withdrawing"))
+                {
+                    await CwBot.SendMessage(Program.withdrawResult);
+                    var reply = await WaitForCwBotReply();
+                    if (!reply.Message.Contains("Received"))
+                    {
+                        await GuildChat.SendMessage("не получилось забрать ресы");
+                        ResetGlobals();
+                        return;
+                    }
+
+                    await CwBot.SendMessage(Program.craftCommand);
+                    reply = await WaitForCwBotReply();
+                    await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, reply.Id);
+                    ResetGlobals();
+                    return;
+                }
+            }
+            if (msgToCheck.Message.ToLower().Contains("скрафти"))
+            {
+                if (msgToCheck.ReplyToMsgId == null)
+                {
+                    await GuildChat.SendMessage("Нет реплая на крафт");
+                    return;
+                }
+
+                var replyMsg = await GuildChat.GetMessageById(msgToCheck.ReplyToMsgId.Value);
+
+                if (!replyMsg.Message.Contains("/c_"))
+                {
+                    await GuildChat.SendMessage("Нет команды крафта в реплае");
+                    Thread.Sleep(500);
+                    return;
+                }
+                Program.Logs.Add($"{User.UserName} сделал хуйню с крафтом");
+                await CwBot.SendMessage(replyMsg.Message);
+                var cwReply = await WaitForCwBotReply();
+                if (cwReply.Message.Contains("Изготовлено"))
+                {
+                    await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, cwReply.Id);
+                    return;
+                }
+
+                if (cwReply.Message.Contains("Не хватает материалов для крафта"))
+                {
+                    await GuildChat.SendMessage("Не хватает ресов. Пробую подрезать через ефира...");
+                    Program.waitingForResourcesForCraft = true;
+                    Program.resourcesNeededCounts.Clear();
+                    Program.resourcesNeededIds.Clear();
+                    Program.craftCommand = replyMsg.Message;
+                    Program.withdrawResult = "";
+                    var resources = cwReply.Message.Split("Требуется:\n")[1].Split("\n");
+                    foreach (var resource in resources)
+                    {
+                        Program.resourcesNeededCounts.Add(int.Parse(resource.Split(" x ")[0]));
+                        Program.resourcesNeededIds.Add(Array.IndexOf(Constants.CwItems, resource.Split(" x ")[1]));
+                    }
+                    return;
+                } 
+                await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, cwReply.Id);
+            }
+        }
+
+        private static void ResetGlobals()
+        {
+            Program.waitingForResourcesForCraft = false;
+            Program.resourcesNeededCounts.Clear();
+            Program.resourcesNeededIds.Clear();
+            Program.craftCommand = "";
+            Program.withdrawResult = "";
+        }
+
         private async Task CheckHerbCommand(TLMessage msgToCheck)
         {
             if ((msgToCheck.Message.ToLower().Contains("выдай травы ") || msgToCheck.Message.ToLower().Contains("выдай трав ")) && msgToCheck.Message.Split(' ').Length == 3)
@@ -378,6 +519,59 @@ namespace palochki
                 {
                     await GuildChat.SendMessage(command);
                     Program.Logs.Add($"{User.UserName} сделал хуйню с травами");
+                    Thread.Sleep(1000);
+                }
+            }
+        }
+
+        private async Task CheckFragsCommand(TLMessage msgToCheck)
+        {
+            if (msgToCheck.Message.ToLower().Contains("выдай фраг ") && msgToCheck.Message.Split(' ').Length == 3)
+            {
+                if (msgToCheck.ReplyToMsgId == null)
+                {
+                    await GuildChat.SendMessage("Нет реплая на фраги");
+                    return;
+                }
+
+                var replyMsg = await GuildChat.GetMessageById(msgToCheck.ReplyToMsgId.Value);
+
+                if (!replyMsg.Message.Contains("Guild Warehouse") || !replyMsg.Message.Contains("part") && !replyMsg.Message.Contains("recipe"))
+                {
+                    await GuildChat.SendMessage("Нет стока фрагов в реплае");
+                    Thread.Sleep(500);
+                    return;
+                }
+
+                if (!int.TryParse(msgToCheck.Message.Split(' ')[2], out var count))
+                {
+                    await GuildChat.SendMessage("Не распознал число фрагов");
+                    return;
+                }
+                var strings = replyMsg.Message.Split('\n');
+                var commandLength = 0;
+                var command = "/g_withdraw ";
+                foreach (var s in strings)
+                {
+                    if (commandLength > 8)
+                    {
+                        commandLength = 0;
+                        await GuildChat.SendMessage(command);
+                        command = "/g_withdraw ";
+                    }
+                    if (s.Contains("Guild Warehouse") || s.Length<3) continue;
+                    var partId = s.Split(' ')[0];
+                    if (!int.TryParse(s.Split("x ")[1], out var partCount)) continue;
+                    var countRes = (int) partCount * count / 100;
+                    if (countRes <= 0) continue;
+                    command += $"{partId} {countRes} ";
+                    commandLength++;
+                }
+
+                if (commandLength > 0)
+                {
+                    await GuildChat.SendMessage(command);
+                    Program.Logs.Add($"{User.UserName} сделал хуйню с фрагами");
                     Thread.Sleep(1000);
                 }
             }
@@ -512,6 +706,31 @@ namespace palochki
                 await TryDepositItems(lastMes);
             if (lastMes.Message.ToLower().Contains("скинь героя"))
                 await GetHeroMessage();
+        }
+
+        private async Task TryBuhloOrder(TLMessage msg)
+        {
+            if(msg.Id == UserInfo.LastBadRequestId)
+                return;
+            await CwBot.SendMessage("🏰Замок");
+            var lastBotMessage = await WaitForCwBotReply();
+            if (lastBotMessage.Message.Contains("Чат замка"))
+            {
+                await CwBot.SendMessage("🍺Таверна");
+                lastBotMessage = await WaitForCwBotReply();
+                if (lastBotMessage.Message.Contains("Кто ж днем в баре сидит?"))
+                    await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, lastBotMessage.Id);
+                else
+                {
+                    await CwBot.SendMessage("🍺Взять кружку эля");
+                    lastBotMessage = await WaitForCwBotReply();
+                    await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, lastBotMessage.Id);
+                }
+            }
+
+            UserInfo.LastBadRequestId = msg.Id;
+            await Program.Db.SaveChangesAsync();
+            Program.Logs.Add($"{User.UserName} сделал хуйню с пином");
         }
 
         private async Task GetHeroMessage()
@@ -918,11 +1137,14 @@ namespace palochki
             var rowId = 0;
             var botReply = await WaitForCwBotReply();
             var buttonNumber = -1;
-            if (botReply.Message.Contains(Constants.ForestQuestForRangers) || botReply.Message.Contains(Constants.ForestQuestForRangersN))
+            if (botReply.Message.Contains(Constants.ForestQuestForRangers) || botReply.Message.Contains(Constants.ForestQuestForRangersN)
+                || botReply.Message.Contains(Constants.ForestQuestForNobles) || botReply.Message.Contains(Constants.ForestQuestForNoblesN)) 
                 buttonNumber = 0;
-            if (botReply.Message.Contains(Constants.SwampQuestForRangers) || botReply.Message.Contains(Constants.SwampQuestForRangersN))
+            if (botReply.Message.Contains(Constants.SwampQuestForRangers) || botReply.Message.Contains(Constants.SwampQuestForRangersN)
+                || botReply.Message.Contains(Constants.SwampQuestForNobles)|| botReply.Message.Contains(Constants.SwampQuestForNoblesN))
                 buttonNumber = 1;
-            if (botReply.Message.Contains(Constants.RockQuestForRangers) || botReply.Message.Contains(Constants.RockQuestForRangersN))
+            if (botReply.Message.Contains(Constants.RockQuestForRangers) || botReply.Message.Contains(Constants.RockQuestForRangersN)
+                || botReply.Message.Contains(Constants.RockQuestForNobles) || botReply.Message.Contains(Constants.RockQuestForNoblesN))
                 buttonNumber = 2;
             if (buttonNumber == -1 || User.UserName == "ефир")  
             {

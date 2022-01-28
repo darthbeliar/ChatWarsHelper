@@ -13,8 +13,18 @@ namespace palochki
     {
         public static PalockiContext Db = new PalockiContext();
         public static List<string> Logs = new List<string>();
+        public static bool waitingForResourcesForCraft;
+        public static List<int> resourcesNeededIds;
+        public static List<int> resourcesNeededCounts;
+        public static string withdrawResult;
+        public static string craftCommand;
         private static async Task Main()
         {
+            waitingForResourcesForCraft = false;
+            resourcesNeededCounts = new List<int>();
+            resourcesNeededIds = new List<int>();
+            withdrawResult = "";
+            craftCommand = "";
             Console.WriteLine("бот стартанул тип");
             var helpersCw = await PrepareHelpersCw();
             //var helpersHyp = await PrepareHelpersHyp(helpersCw);
