@@ -39,5 +39,7 @@ namespace palochki.DB_Stuff
         public int? IsCyberTea { get; set; }
         [Column]
         public string? CyberTeaOrder { get; set; }
+        [Column]
+        public string? LastOrder { get; set; }
     }
 }

@@ -154,8 +154,21 @@ namespace palochki
                         x.Message.Contains(Constants.HasMobs) && x.FromId == Constants.CwBotId);
                     UserInfo.LastFoundFight = fightMessage.Message;
                     await Program.Db.SaveChangesAsync();
+                    if (User.UserName != "трунь")
+                        await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer,
+                            fightMessage.Id);
+                }
+
+                if (last3BotMsgs.Any(x =>
+                    x.Message.Contains("has ordered") && x.Message != UserInfo.LastOrder &&
+                    x.FromId == Constants.CwBotId))
+                {
+                    var orderMsg = last3BotMsgs.First(x =>
+                        x.Message.Contains("has ordered") && x.FromId == Constants.CwBotId);
+                    UserInfo.LastOrder = orderMsg.Message;
+                    await Program.Db.SaveChangesAsync();
                     await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer,
-                        fightMessage.Id);
+                        orderMsg.Id);
                 }
             }
 
