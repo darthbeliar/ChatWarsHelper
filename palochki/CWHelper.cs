@@ -136,7 +136,7 @@ namespace palochki
                     if (Constants.AfterBattleHours.Contains(time.Hour) && time.Minute < afterBattleMinute)
                         return;
                     var rng = new Random();
-                    UserInfo.StamaCountToSpend = rng.Next(3, 6);
+                    UserInfo.StamaCountToSpend = rng.Next(1, 2) * 3;
                     await Program.Db.SaveChangesAsync();
                 }
 
@@ -616,17 +616,57 @@ namespace palochki
             if (UserInfo.QuestType == 4)
                 waitMins += 2;
             var stamaUseStarted = ParseDbDate(UserInfo.StamaUseStarted);
-            if(time<stamaUseStarted.AddMinutes(waitMins))
+            if(time<stamaUseStarted.AddMinutes(waitMins > 6 ? waitMins : waitMins * 3))
                 return;
-            await UseStamina();
+            var hasSpecialQuest = await UseStamina();
 
-            botMsg = (await CwBot.GetLastMessage()).Message;
+            var botMsgRaw = (await CwBot.GetLastMessage());
+            botMsg = botMsgRaw.Message;
             if (botMsg.Contains("Горы полны опасностей") || botMsg.Contains("Ты отправился искать приключения в лес") ||
                 botMsg.Contains("ты отправился в болото"))
             {
-                UserInfo.StamaCountToSpend--;
+
+                if (!hasSpecialQuest && UserInfo.StamaCountToSpend > 1)
+                {
+                    var buttonNumber = 0;
+                    switch (UserInfo.QuestType)
+                    {
+                        case 2:
+                            buttonNumber = 1;
+                            break;
+                        case 3:
+                            buttonNumber = 2;
+                            break;
+                        case 4:
+                            buttonNumber = 3;
+                            break;
+                    }
+
+                    if (buttonNumber < 3)
+                    {
+                        Thread.Sleep(850);
+                        await MessageUtilities.PressButton(Client, CwBot.Peer, botMsgRaw, 0, buttonNumber);
+                        if (UserInfo.StamaCountToSpend > 2)
+                        {
+                            Thread.Sleep(950);
+                            botMsgRaw = await CwBot.GetLastMessage();
+                            await MessageUtilities.PressButton(Client, CwBot.Peer, botMsgRaw, 0, buttonNumber);
+                        }
+                    }
+                }
+
+                if (hasSpecialQuest)
+                    UserInfo.StamaCountToSpend--;
+                else
+                {
+
+                    if (UserInfo.StamaCountToSpend < 3)
+                        UserInfo.StamaCountToSpend = 0;
+                    else
+                        UserInfo.StamaCountToSpend -= 3;
+                }
             }
-            UserInfo.StamaUseStarted = AddTimeToDb(time);
+            UserInfo.StamaUseStarted = AddTimeToDb(hasSpecialQuest ? time.AddMinutes(-6) : time);
             await Program.Db.SaveChangesAsync();
             if (botMsg.Contains("подлечиться"))
             {
@@ -1142,22 +1182,22 @@ namespace palochki
             }
         }
 
-        private async Task UseStamina()
+        private async Task<bool> UseStamina()
         {
             if(User.StamaEnabled != 1)
-                return;
+                return false;
             await CwBot.SendMessage(Constants.QuestsCommand);
             var rowId = 0;
             var botReply = await WaitForCwBotReply();
             var buttonNumber = -1;
             if (botReply.Message.Contains(Constants.ForestQuestForRangers) || botReply.Message.Contains(Constants.ForestQuestForRangersN)
-                || botReply.Message.Contains(Constants.ForestQuestForNobles) || botReply.Message.Contains(Constants.ForestQuestForNoblesN)) 
+                                                                           || botReply.Message.Contains(Constants.ForestQuestForNobles) || botReply.Message.Contains(Constants.ForestQuestForNoblesN)) 
                 buttonNumber = 0;
             if (botReply.Message.Contains(Constants.SwampQuestForRangers) || botReply.Message.Contains(Constants.SwampQuestForRangersN)
-                || botReply.Message.Contains(Constants.SwampQuestForNobles)|| botReply.Message.Contains(Constants.SwampQuestForNoblesN))
+                                                                          || botReply.Message.Contains(Constants.SwampQuestForNobles)|| botReply.Message.Contains(Constants.SwampQuestForNoblesN))
                 buttonNumber = 1;
             if (botReply.Message.Contains(Constants.RockQuestForRangers) || botReply.Message.Contains(Constants.RockQuestForRangersN)
-                || botReply.Message.Contains(Constants.RockQuestForNobles) || botReply.Message.Contains(Constants.RockQuestForNoblesN))
+                                                                         || botReply.Message.Contains(Constants.RockQuestForNobles) || botReply.Message.Contains(Constants.RockQuestForNoblesN))
                 buttonNumber = 2;
             if (buttonNumber == -1 || User.UserName == "ефир")  
             {
@@ -1181,12 +1221,14 @@ namespace palochki
                         break;
                 }
             }
+
             Thread.Sleep(1000);
             await CwBot.PressButton(botReply, rowId, buttonNumber);
             await WaitForCwBotReply();
             Program.Logs.Add($"{User.UserName} сделал хуйню с стаминой");
             await File.AppendAllTextAsync(Constants.ActionLogFile,
                 $"{DateTime.Now}\n{User.UserName} юзнул автослив стамы\n");
+            return botReply.Message.Contains("🔥") || botReply.Message.Contains("🎩");
         }
 
         private async Task<TLMessage> WaitForCwBotReply()
