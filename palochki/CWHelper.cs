@@ -261,9 +261,53 @@ namespace palochki
             if (User.UserName == "глимер")
             {
                 await CheckGiveOrder(lastGiMsg,true);
+                await CheckDrinksOrder(lastGiMsg);
             }
             await CheckTransformStockCommand(lastGiMsg);
             await CheckSpecialAbility(lastGiMsg);
+        }
+
+        private async Task CheckDrinksOrder(TLMessage lastGiMsg)
+        {
+            var msg = lastGiMsg.Message.Split(' ');
+            if(msg.Length != 4) return;
+            if (msg[0].ToLower() == "глимер" && msg[1].ToLower() == "налей" && int.TryParse(msg[3], out var count))
+            {
+                var command = "/g_withdraw ";
+                switch (msg[2])
+                {
+                    case "фр":
+                        command += $"p01 {count} p02 {count} p03 {count}";
+                        break;
+                    case "фд":
+                        command += $"p04 {count} p05 {count} p06 {count}";
+                        break;
+                    case "грид":
+                        command += $"p07 {count} p08 {count} p09 {count}";
+                        break;
+                    case "натуру":
+                        command += $"p10 {count} p11 {count} p12 {count}";
+                        break;
+                    case "маны":
+                        command += $"p13 {count} p14 {count} p15 {count}";
+                        break;
+                    case "твил":
+                        command += $"p16 {count} p17 {count} p18 {count}";
+                        break;
+                    case "морф":
+                        command += $"p19 {count} p20 {count} p21 {count}";
+                        break;
+                    default:
+                        await GuildChat.SendMessage(
+                            "не распознал тип зелья\nдоступные типы: фр фд грид натуру маны твил морф");
+                        return;
+                }
+
+                await CwBot.SendMessage(command);
+                var lastBotMessage = await WaitForCwBotReply();
+                await MessageUtilities.ForwardMessage(Client, CwBot.Peer, GuildChat.Peer, lastBotMessage.Id);
+                Program.Logs.Add($"{User.UserName} сделал хуйню с выдачей");
+            }
         }
 
         private async Task CheckCraftGiveOrder()
@@ -666,7 +710,7 @@ namespace palochki
                         UserInfo.StamaCountToSpend -= 3;
                 }
             }
-            UserInfo.StamaUseStarted = AddTimeToDb(hasSpecialQuest ? time.AddMinutes(-6) : time);
+            UserInfo.StamaUseStarted = AddTimeToDb(hasSpecialQuest ? time.AddMinutes(waitMins * -2) : time);
             await Program.Db.SaveChangesAsync();
             if (botMsg.Contains("подлечиться"))
             {
